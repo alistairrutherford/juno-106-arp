@@ -1,8 +1,9 @@
-# Juno106AU
+# Juno 106-ARP
 
-A Roland Juno-106 style polyphonic synthesizer, built with JUCE as an Audio Unit
-(plus a Standalone app for quick testing). Loads into Ableton Live and any other
-AU host on macOS.
+A Roland Juno-106 style polyphonic synthesizer with an added arpeggiator, built
+with JUCE. Builds as an **Audio Unit** and **VST3** (universal arm64 + x86_64),
+plus a Standalone app for quick testing. Loads into Ableton Live and any other
+AU/VST3 host on macOS.
 
 ## Architecture (faithful to the original signal path)
 
@@ -15,7 +16,8 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   square sub-oscillator one octave down, white noise. Range switch 16' / 8' / 4'.
 - **VCF** — zero-delay-feedback 4-pole (24 dB/oct) lowpass in the spirit of the
   IR3109 OTA cascade, with resonance, envelope amount (normal/inverted polarity),
-  LFO modulation and key follow.
+  LFO modulation and key follow. Self-oscillates at maximum resonance and has a
+  **Drive** control for saturating filter dirt.
 - **ENV** — single exponential ADSR shared by filter and amp, like the real unit.
 - **VCA** — envelope or gate mode, level control.
 - **LFO** — global free-running triangle with rate and per-note onset delay.
@@ -23,20 +25,41 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   progressively cut lows.
 - **Chorus** — BBD-style stereo chorus; buttons I, II, or both together for the
   fast vibrato-like third mode. Wet taps modulate in opposite directions per side.
-- 6-voice polyphony with voice stealing; velocity is ignored, as on the original.
-- **Portamento** — glide time fader (far left); 0 = off. An addition over the
-  original hardware.
+- 6-voice polyphony with voice stealing. Velocity is off by default, as on the
+  original, with optional velocity depth (see below).
+- **Analog variance** — each voice has a fixed few-cents detune and small filter
+  trim so stacked voices aren't digitally identical.
+- **Parameter smoothing** — cutoff, resonance, level and drive are smoothed to
+  avoid zipper noise on fast automation.
+
+### Modern extensions (not on the original hardware)
+
+- **Portamento** — glide time; 0 = off.
 - **Mod wheel** (CC1) — adds immediate LFO vibrato, up to ± half a semitone.
-- **Factory presets** — ten programs (Init, Lush Strings, Analog Brass, PWM Pad,
+- **Bend** — pitch-bend range (0–12 semitones) and an optional bender→VCF sweep.
+- **Velocity** — optional velocity→VCF and velocity→VCA depth (both default 0).
+- **Aftertouch** — channel pressure → VCF depth.
+- **Arpeggiator** — tempo-synced to the host. Modes: Up, Down, Up/Down, Down/Up,
+  Random, As Played. Rate 1/4 to 1/32 including triplets. Octave range 1-4,
+  adjustable gate length, and Hold/latch (releasing Hold drops the latched notes).
+  It locks to the host transport grid when playing and free-runs at the host tempo
+  when stopped. Controllers such as the mod wheel pass straight through.
+- **Presets** — ten factory programs (Init, Lush Strings, Analog Brass, PWM Pad,
   Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise)
-  exposed through the AU preset menu in the host, plus an in-plugin preset browser
-  in the panel header.
-- **Arpeggiator** (not on the original 106) — tempo-synced to the host. Modes:
-  Up, Down, Up/Down, Down/Up, Random, As Played. Rate: 1/4 to 1/32 including
-  triplets. Octave range 1-4, adjustable gate length, and Hold/latch. It locks to
-  the host's transport grid when playing and free-runs (at the host tempo) when
-  stopped, so held chords still arpeggiate. Controllers such as the mod wheel pass
-  straight through.
+  exposed through the host preset menu, an in-plugin preset browser with prev/next,
+  and **Save/Load** of user patches to `.juno` files.
+
+## Tests
+
+`Tests/run_tests.sh` compiles and runs the arpeggiator and DSP unit tests against
+the JUCE modules (Xcode clang only, no cmake):
+
+```sh
+JUCE_DIR=~/Development/JUCE Tests/run_tests.sh
+```
+
+CI (`.github/workflows/build.yml`) builds the AU/VST3/Standalone and runs these
+tests on every push.
 
 ## Building
 
@@ -51,17 +74,18 @@ xcodebuild -project ~/Development/JUCE/extras/Projucer/Builds/MacOSX/Projucer.xc
 ~/Development/JUCE/extras/Projucer/Builds/MacOSX/build/Release/Projucer.app/Contents/MacOS/Projucer \
     --resave Juno106.jucer
 
-# build AU + Standalone
+# build AU + VST3 + Standalone (universal binary)
 cd Builds/MacOSX
 xcodebuild -project Juno106.xcodeproj -target "Juno106 - All" -configuration Release build
 ```
 
-The build copies `Juno106.component` to `~/Library/Audio/Plug-Ins/Components/`.
+The build copies `Juno106.component` to `~/Library/Audio/Plug-Ins/Components/` and
+`Juno106.vst3` to `~/Library/Audio/Plug-Ins/VST3/`.
 
 ## Using in Ableton Live
 
-1. Preferences → Plug-Ins → make sure **Audio Units** is enabled and rescan.
-2. Find it in the browser under Plug-Ins → Audio Units → Alistair Rutherford → Juno 106.
+1. Preferences → Plug-Ins → make sure **Audio Units** (or **VST3**) is enabled and rescan.
+2. Find it in the browser under Plug-Ins → Audio Units → Alistair Rutherford → Juno 106-ARP.
 
 If Live doesn't see it after a rescan, run `auval -v aumu Jn06 ARut` in Terminal
 and/or `killall -9 AudioComponentRegistrar`, then restart Live.

@@ -29,6 +29,12 @@ Juno106AudioProcessor::Juno106AudioProcessor()
     shared.vcaMode    = apvts.getRawParameterValue ("vcaMode");
     shared.vcaLevel   = apvts.getRawParameterValue ("vcaLevel");
     shared.portTime   = apvts.getRawParameterValue ("portamento");
+    shared.vcfDrive   = apvts.getRawParameterValue ("vcfDrive");
+    shared.bendRange  = apvts.getRawParameterValue ("bendRange");
+    shared.benderVcf  = apvts.getRawParameterValue ("benderVcf");
+    shared.velVcf     = apvts.getRawParameterValue ("velVcf");
+    shared.velVca     = apvts.getRawParameterValue ("velVca");
+    shared.atVcf      = apvts.getRawParameterValue ("atVcf");
 
     // Six voices, like the original.
     for (int i = 0; i < 6; ++i)
@@ -49,6 +55,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout Juno106AudioProcessor::creat
     // Performance
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "portamento", 1 }, "Portamento",
                                               Range (0.0f, 2.0f, 0.0f, 0.5f), 0.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "bendRange", 1 }, "Bend Range",
+                                              Range (0.0f, 12.0f, 1.0f), 2.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "benderVcf", 1 }, "Bender VCF", Range (0.0f, 1.0f), 0.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "velVcf", 1 }, "Velocity VCF", Range (0.0f, 1.0f), 0.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "velVca", 1 }, "Velocity VCA", Range (0.0f, 1.0f), 0.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "atVcf", 1 }, "Aftertouch VCF", Range (0.0f, 1.0f), 0.0f));
 
     // Arpeggiator
     layout.add (std::make_unique<BoolParam> (juce::ParameterID { "arpOn", 1 }, "Arp On", false));
@@ -87,6 +99,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Juno106AudioProcessor::creat
     // VCF
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfFreq", 1 }, "VCF Freq", Range (0.0f, 1.0f), 0.7f));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfRes", 1 },  "VCF Res",  Range (0.0f, 1.0f), 0.0f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfDrive", 1 }, "VCF Drive", Range (0.0f, 1.0f), 0.0f));
     layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "vcfEnvPol", 1 }, "VCF Env Polarity",
                                                juce::StringArray { "Positive", "Negative" }, 0));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfEnv", 1 },  "VCF Env",  Range (0.0f, 1.0f), 0.0f));
@@ -167,12 +180,16 @@ void Juno106AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         arp.process (midi, numSamples, ap, bpm, ppq, playing);
     }
 
-    // Mod wheel (CC1) adds immediate LFO vibrato in the voices.
+    // Mod wheel (CC1) and channel pressure feed the voices' modulation.
     for (const auto metadata : midi)
     {
         const auto msg = metadata.getMessage();
         if (msg.isController() && msg.getControllerNumber() == 1)
             shared.modWheel.store ((float) msg.getControllerValue() / 127.0f);
+        else if (msg.isChannelPressure())
+            shared.aftertouch.store ((float) msg.getChannelPressureValue() / 127.0f);
+        else if (msg.isAftertouch())
+            shared.aftertouch.store ((float) msg.getAfterTouchValue() / 127.0f);
     }
 
     if ((int) shared.lfoBuffer.size() < numSamples)

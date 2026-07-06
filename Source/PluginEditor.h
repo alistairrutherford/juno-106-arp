@@ -46,11 +46,15 @@ private:
     Toggle& addToggle (const juce::String& paramID, const juce::String& text);
 
     void loadPreset (int index);
+    void savePreset();
+    void loadPresetFile();
 
     Juno106AudioProcessor& processor;
     JunoLookAndFeel lookAndFeel;
 
     juce::ComboBox presetBox;
+    juce::TextButton prevButton, nextButton, saveButton, loadButton;
+    std::unique_ptr<juce::FileChooser> fileChooser;
     int lastSeenProgram = -1;
 
     std::vector<std::unique_ptr<Fader>> faders;
@@ -62,7 +66,8 @@ private:
           *subLevel {}, *noiseLevel {}, *hpfFreq {}, *vcfFreq {}, *vcfRes {}, *vcfPol {},
           *vcfEnv {}, *vcfLfo {}, *vcfKybd {}, *attack {}, *decay {}, *sustain {},
           *release {}, *vcaMode {}, *vcaLevel {},
-          *arpMode {}, *arpRate {}, *arpOct {}, *arpGate {};
+          *arpMode {}, *arpRate {}, *arpOct {}, *arpGate {},
+          *vcfDrive {}, *bendRange {}, *benderVcf {}, *velVcf {}, *velVca {}, *atVcf {};
     Toggle *sawBtn {}, *pulseBtn {}, *chorusIBtn {}, *chorusIIBtn {},
            *arpOnBtn {}, *arpHoldBtn {};
 

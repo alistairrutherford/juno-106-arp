@@ -3,7 +3,7 @@
 <JUCERPROJECT id="Jn106P" name="Juno106" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="1.0.0"
               companyName="Alistair Rutherford" bundleIdentifier="com.alistairrutherford.juno106"
-              pluginFormats="buildAU,buildStandalone" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
+              pluginFormats="buildAU,buildVST3,buildStandalone" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
               pluginName="Juno 106-ARP" pluginDesc="Juno-106 style polyphonic synthesizer with arpeggiator"
               pluginManufacturer="Alistair Rutherford" pluginManufacturerCode="ARut"
               pluginCode="Jn06" cppLanguageStandard="17">
@@ -46,8 +46,8 @@
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="Juno106" macOSDeploymentTarget="11.0"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="Juno106" macOSDeploymentTarget="11.0"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="Juno106" macOSDeploymentTarget="11.0" osxArchitecture="Standard"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Juno106" macOSDeploymentTarget="11.0" osxArchitecture="Standard"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="/Users/alistairrutherford/Development/JUCE/modules"/>

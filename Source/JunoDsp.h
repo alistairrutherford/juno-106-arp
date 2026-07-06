@@ -168,27 +168,33 @@ struct LadderZdf
 
     void reset() noexcept { z[0] = z[1] = z[2] = z[3] = 0.0f; }
 
-    // cutoff in Hz, res in [0, 1]
-    float process (float x, float cutoff, float res) noexcept
+    // cutoff in Hz, res in [0, 1], drive in [0, 1].
+    // Near res == 1 the feedback exceeds the k == 4 stability point so the
+    // filter self-oscillates, like the 80017a chip driven hard.
+    float process (float x, float cutoff, float res, float drive) noexcept
     {
         cutoff = juce::jlimit (20.0f, fs * 0.45f, cutoff);
 
         const float g  = std::tan (juce::MathConstants<float>::pi * cutoff / fs);
         const float G  = g / (1.0f + g);
         const float d  = 1.0f / (1.0f + g);
-        const float k  = 4.0f * res;
+        const float k  = 4.6f * res;              // >4 at max => self-oscillation
         const float G2 = G * G;
         const float G4 = G2 * G2;
 
-        // Passband gain compensation so resonance doesn't gut the low end.
+        // Passband gain compensation, then input drive into the saturator.
         x *= 1.0f + 0.5f * k;
+        const float pre = 1.0f + 5.0f * drive;    // drive raises the level hitting tanh
+        const float post = 1.0f / (1.0f + 2.0f * drive);
 
         const float S  = d * (G2 * G * z[0] + G2 * z[1] + G * z[2] + z[3]);
         float y4 = (G4 * x + S) / (1.0f + k * G4);
         float u  = x - k * y4;
 
-        // Gentle saturation keeps high resonance under control.
-        u = std::tanh (u);
+        // Soft saturation in the feedback path. Scaling the tanh argument down
+        // reduces damping so resonance can ring and self-oscillate; drive pushes
+        // it into audible dirt.
+        u = std::tanh (0.8f * pre * u) / (0.8f * pre);
 
         for (int i = 0; i < 4; ++i)
         {
@@ -198,7 +204,7 @@ struct LadderZdf
             u = y;
         }
 
-        return u;
+        return u * post;
     }
 
     float fs = 44100.0f;

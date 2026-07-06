@@ -13,7 +13,9 @@ namespace
 
     constexpr int kHeaderH   = 46;
     constexpr int kSectionY  = 56;
-    constexpr int kSectionH  = 244;
+    constexpr int kRow1H     = 210;
+    constexpr int kRow2Y     = kSectionY + kRow1H + 12;   // 278
+    constexpr int kRow2H     = 150;
     constexpr int kFaderW    = 40;
     constexpr int kLabelH    = 26;
 }
@@ -51,6 +53,14 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     vcfEnv  = &addFader ("vcfEnv",  "ENV",  kRedCap);
     vcfLfo  = &addFader ("vcfLfo",  "LFO",  kRedCap);
     vcfKybd = &addFader ("vcfKybd", "KYBD", kRedCap);
+
+    // Second-row additions (modern extensions, not on the original 106)
+    vcfDrive  = &addFader ("vcfDrive",  "DRIVE", kRedCap);
+    bendRange = &addFader ("bendRange", "RANGE", kWhiteCap, true);
+    benderVcf = &addFader ("benderVcf", "VCF",   kBlueCap);
+    velVcf    = &addFader ("velVcf",    "VCF",   kGreenCap);
+    velVca    = &addFader ("velVca",    "VCA",   kGreenCap);
+    atVcf     = &addFader ("atVcf",     "VCF",   kBlueCap);
 
     // ENV
     attack  = &addFader ("attack",  "A", kGreenCap);
@@ -92,9 +102,33 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     };
     addAndMakeVisible (presetBox);
 
+    auto setupHeaderButton = [this] (juce::TextButton& b, const juce::String& text)
+    {
+        b.setButtonText (text);
+        b.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff2a2a2e));
+        addAndMakeVisible (b);
+    };
+    setupHeaderButton (prevButton, "<");
+    setupHeaderButton (nextButton, ">");
+    setupHeaderButton (saveButton, "SAVE");
+    setupHeaderButton (loadButton, "LOAD");
+
+    prevButton.onClick = [this]
+    {
+        const int i = processor.getCurrentProgram() - 1;
+        if (i >= 0) loadPreset (i);
+    };
+    nextButton.onClick = [this]
+    {
+        const int i = processor.getCurrentProgram() + 1;
+        if (i < processor.getNumPrograms()) loadPreset (i);
+    };
+    saveButton.onClick = [this] { savePreset(); };
+    loadButton.onClick = [this] { loadPresetFile(); };
+
     lastSeenProgram = processor.getCurrentProgram();
 
-    setSize (1430, 320);
+    setSize (1430, 452);
 
     // Poll the processor so host-driven program changes are reflected here too.
     startTimerHz (10);
@@ -110,6 +144,49 @@ void Juno106AudioProcessorEditor::loadPreset (int index)
 {
     processor.setCurrentProgram (index);
     lastSeenProgram = index;
+    presetBox.setSelectedId (index + 1, juce::dontSendNotification);
+}
+
+void Juno106AudioProcessorEditor::savePreset()
+{
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("Juno106-ARP Presets");
+    dir.createDirectory();
+
+    fileChooser = std::make_unique<juce::FileChooser> ("Save preset", dir, "*.juno");
+    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                              | juce::FileBrowserComponent::canSelectFiles
+                              | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  auto file = fc.getResult();
+                                  if (file == juce::File())
+                                      return;
+
+                                  file = file.withFileExtension ("juno");
+                                  if (auto xml = processor.apvts.copyState().createXml())
+                                      xml->writeTo (file);
+                              });
+}
+
+void Juno106AudioProcessorEditor::loadPresetFile()
+{
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("Juno106-ARP Presets");
+
+    fileChooser = std::make_unique<juce::FileChooser> ("Load preset", dir, "*.juno");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  auto file = fc.getResult();
+                                  if (! file.existsAsFile())
+                                      return;
+
+                                  if (auto xml = juce::XmlDocument::parse (file))
+                                      if (xml->hasTagName (processor.apvts.state.getType()))
+                                          processor.apvts.replaceState (juce::ValueTree::fromXml (*xml));
+                              });
 }
 
 void Juno106AudioProcessorEditor::timerCallback()
@@ -136,6 +213,19 @@ Juno106AudioProcessorEditor::Fader& Juno106AudioProcessorEditor::addFader (
 
     if (snapToInt)
         f.slider.setSliderSnapsToMousePosition (false);
+
+    // Popup shows the parameter's real text: choice labels ("1/16", "16'") and
+    // formatted values with units, instead of the raw normalized number.
+    if (auto* rp = processor.apvts.getParameter (paramID))
+    {
+        f.slider.textFromValueFunction = [rp] (double v)
+        {
+            auto t = rp->getText (rp->convertTo0to1 ((float) v), 0);
+            auto unit = rp->getLabel();
+            return unit.isNotEmpty() ? t + " " + unit : t;
+        };
+        f.slider.updateText();
+    }
 
     addAndMakeVisible (f.slider);
 
@@ -169,62 +259,64 @@ Juno106AudioProcessorEditor::Toggle& Juno106AudioProcessorEditor::addToggle (
 //==============================================================================
 void Juno106AudioProcessorEditor::resized()
 {
-    // Preset browser sits at the right end of the header strip.
-    const int boxW = 220, boxH = 26;
-    presetBox.setBounds (getWidth() - boxW - 16, (kHeaderH - boxH) / 2, boxW, boxH);
+    // Header toolbar (right to left): LOAD, SAVE, >, preset box, <.
+    const int hy = (kHeaderH - 26) / 2;
+    int hx = getWidth() - 16;
+    auto placeRight = [&] (juce::Component& c, int w) { hx -= w; c.setBounds (hx, hy, w, 26); hx -= 6; };
+    placeRight (loadButton, 52);
+    placeRight (saveButton, 52);
+    placeRight (nextButton, 26);
+    placeRight (presetBox, 190);
+    placeRight (prevButton, 26);
 
     sections.clear();
 
     int x = 14;
     const int gap = 10;
+    const int btnW = 46;
+    int rowY = kSectionY;
+    int rowH = kRow1H;
 
     auto placeFader = [&] (Fader* f, int& fx)
     {
-        f->slider.setBounds (fx, kSectionY + 18, kFaderW, kSectionH - 18 - kLabelH);
-        f->label.setBounds (fx, kSectionY + kSectionH - kLabelH, kFaderW, kLabelH);
+        f->slider.setBounds (fx, rowY + 18, kFaderW, rowH - 18 - kLabelH);
+        f->label.setBounds (fx, rowY + rowH - kLabelH, kFaderW, kLabelH);
         fx += kFaderW;
     };
 
     auto beginSection = [&] (const juce::String& name) { return std::make_pair (name, x); };
-    auto endSection = [&] (std::pair<juce::String, int> s)
+    auto endSection = [&] (std::pair<juce::String, int> sec)
     {
-        sections.push_back ({ s.first, { s.second - 6, kSectionY, x - s.second + 12, kSectionH } });
+        sections.push_back ({ sec.first, { sec.second - 6, rowY, x - sec.second + 12, rowH } });
         x += gap + 12;
     };
 
-    // Portamento
+    // ---- Row 1: the classic Juno panel ----
     auto s = beginSection ("PORTA");
     placeFader (portTime, x);
     endSection (s);
 
-    // LFO
     s = beginSection ("LFO");
     placeFader (lfoRate, x);
     placeFader (lfoDelay, x);
     endSection (s);
 
-    // DCO
     s = beginSection ("DCO");
     placeFader (dcoRange, x);
     placeFader (dcoLfo, x);
     placeFader (dcoPwm, x);
     placeFader (pwmSrc, x);
-
-    const int btnW = 46;
-    sawBtn->button.setBounds   (x + 4, kSectionY + 40, btnW, 34);
-    pulseBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
+    sawBtn->button.setBounds   (x + 4, rowY + 34, btnW, 30);
+    pulseBtn->button.setBounds (x + 4, rowY + 78, btnW, 30);
     x += btnW + 8;
-
     placeFader (subLevel, x);
     placeFader (noiseLevel, x);
     endSection (s);
 
-    // HPF
     s = beginSection ("HPF");
     placeFader (hpfFreq, x);
     endSection (s);
 
-    // VCF
     s = beginSection ("VCF");
     placeFader (vcfFreq, x);
     placeFader (vcfRes, x);
@@ -234,7 +326,6 @@ void Juno106AudioProcessorEditor::resized()
     placeFader (vcfKybd, x);
     endSection (s);
 
-    // ENV
     s = beginSection ("ENV");
     placeFader (attack, x);
     placeFader (decay, x);
@@ -242,28 +333,48 @@ void Juno106AudioProcessorEditor::resized()
     placeFader (release, x);
     endSection (s);
 
-    // VCA
     s = beginSection ("VCA");
     placeFader (vcaMode, x);
     placeFader (vcaLevel, x);
     endSection (s);
 
-    // Chorus
     s = beginSection ("CHORUS");
-    chorusIBtn->button.setBounds  (x + 4, kSectionY + 40, btnW, 34);
-    chorusIIBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
+    chorusIBtn->button.setBounds  (x + 4, rowY + 34, btnW, 30);
+    chorusIIBtn->button.setBounds (x + 4, rowY + 78, btnW, 30);
     x += btnW + 12;
     endSection (s);
 
-    // Arpeggiator
     s = beginSection ("ARP");
-    arpOnBtn->button.setBounds   (x + 4, kSectionY + 40, btnW, 34);
-    arpHoldBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
+    arpOnBtn->button.setBounds   (x + 4, rowY + 34, btnW, 30);
+    arpHoldBtn->button.setBounds (x + 4, rowY + 78, btnW, 30);
     x += btnW + 8;
     placeFader (arpMode, x);
     placeFader (arpRate, x);
     placeFader (arpOct, x);
     placeFader (arpGate, x);
+    endSection (s);
+
+    // ---- Row 2: modern extensions ----
+    x = 14;
+    rowY = kRow2Y;
+    rowH = kRow2H;
+
+    s = beginSection ("DRIVE");
+    placeFader (vcfDrive, x);
+    endSection (s);
+
+    s = beginSection ("BEND");
+    placeFader (bendRange, x);
+    placeFader (benderVcf, x);
+    endSection (s);
+
+    s = beginSection ("VELOCITY");
+    placeFader (velVcf, x);
+    placeFader (velVca, x);
+    endSection (s);
+
+    s = beginSection ("AFTER");
+    placeFader (atVcf, x);
     endSection (s);
 }
 
@@ -285,10 +396,10 @@ void Juno106AudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (juce::Font (juce::FontOptions (12.0f)));
     g.drawText ("POLYPHONIC SYNTHESIZER", 266, 0, 300, kHeaderH - 4, juce::Justification::centredLeft);
 
-    // Caption to the left of the preset browser.
+    // Caption to the left of the preset toolbar.
     g.setColour (juce::Colours::white.withAlpha (0.6f));
     g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
-    g.drawText ("PRESET", presetBox.getX() - 66, 0, 60, kHeaderH - 2,
+    g.drawText ("PRESET", prevButton.getX() - 66, 0, 60, kHeaderH - 2,
                 juce::Justification::centredRight);
 
     // Section boxes and titles
