@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "JunoVoice.h"
 #include "JunoChorus.h"
+#include "Arpeggiator.h"
 
 //==============================================================================
 class Juno106AudioProcessor : public juce::AudioProcessor
@@ -42,6 +43,7 @@ private:
     juce::Synthesiser synth;
     JunoChorus chorus;
     juno::HpfSwitch hpf;
+    Arpeggiator arp;
 
     float lfoPhase = 0.0f;
     int currentProgram = 0;

@@ -61,8 +61,10 @@ private:
     Fader *portTime {}, *lfoRate {}, *lfoDelay {}, *dcoRange {}, *dcoLfo {}, *dcoPwm {}, *pwmSrc {},
           *subLevel {}, *noiseLevel {}, *hpfFreq {}, *vcfFreq {}, *vcfRes {}, *vcfPol {},
           *vcfEnv {}, *vcfLfo {}, *vcfKybd {}, *attack {}, *decay {}, *sustain {},
-          *release {}, *vcaMode {}, *vcaLevel {};
-    Toggle *sawBtn {}, *pulseBtn {}, *chorusIBtn {}, *chorusIIBtn {};
+          *release {}, *vcaMode {}, *vcaLevel {},
+          *arpMode {}, *arpRate {}, *arpOct {}, *arpGate {};
+    Toggle *sawBtn {}, *pulseBtn {}, *chorusIBtn {}, *chorusIIBtn {},
+           *arpOnBtn {}, *arpHoldBtn {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Juno106AudioProcessorEditor)
 };

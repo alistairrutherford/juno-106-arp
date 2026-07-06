@@ -50,6 +50,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout Juno106AudioProcessor::creat
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "portamento", 1 }, "Portamento",
                                               Range (0.0f, 2.0f, 0.0f, 0.5f), 0.0f));
 
+    // Arpeggiator
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID { "arpOn", 1 }, "Arp On", false));
+    layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "arpMode", 1 }, "Arp Mode",
+                                               juce::StringArray { "Up", "Down", "Up/Down", "Down/Up", "Random", "As Played" }, 0));
+    layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "arpRate", 1 }, "Arp Rate",
+                                               juce::StringArray { "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32" }, 3));
+    layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "arpOctaves", 1 }, "Arp Octaves",
+                                               juce::StringArray { "1", "2", "3", "4" }, 0));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "arpGate", 1 }, "Arp Gate",
+                                              Range (0.05f, 1.0f), 0.5f));
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID { "arpHold", 1 }, "Arp Hold", false));
+
     // LFO
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "lfoRate", 1 },  "LFO Rate",
                                               Range (0.1f, 30.0f, 0.0f, 0.4f), 4.0f));
@@ -114,6 +126,7 @@ void Juno106AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     shared.lfoBuffer.assign ((size_t) juce::jmax (16, samplesPerBlock), 0.0f);
     chorus.prepare (sampleRate);
     hpf.prepare (sampleRate);
+    arp.prepare (sampleRate);
     lfoPhase = 0.0f;
 }
 
@@ -129,6 +142,30 @@ void Juno106AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     buffer.clear();
 
     const int numSamples = buffer.getNumSamples();
+
+    // Arpeggiator: rewrite the MIDI stream before the synth (and the mod-wheel
+    // scan) see it. Non-note messages such as CC1 pass straight through.
+    {
+        double bpm = 120.0, ppq = 0.0;
+        bool playing = false;
+        if (auto* ph = getPlayHead())
+            if (auto pos = ph->getPosition())
+            {
+                if (auto b = pos->getBpm())          bpm = *b;
+                if (auto q = pos->getPpqPosition())  ppq = *q;
+                playing = pos->getIsPlaying();
+            }
+
+        Arpeggiator::Params ap;
+        ap.on      = apvts.getRawParameterValue ("arpOn")->load()   > 0.5f;
+        ap.mode    = (int) apvts.getRawParameterValue ("arpMode")->load();
+        ap.rate    = (int) apvts.getRawParameterValue ("arpRate")->load();
+        ap.octaves = (int) apvts.getRawParameterValue ("arpOctaves")->load() + 1;  // choice 0..3 -> 1..4
+        ap.gate    = apvts.getRawParameterValue ("arpGate")->load();
+        ap.hold    = apvts.getRawParameterValue ("arpHold")->load() > 0.5f;
+
+        arp.process (midi, numSamples, ap, bpm, ppq, playing);
+    }
 
     // Mod wheel (CC1) adds immediate LFO vibrato in the voices.
     for (const auto metadata : midi)

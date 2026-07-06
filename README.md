@@ -29,7 +29,14 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
 - **Mod wheel** (CC1) — adds immediate LFO vibrato, up to ± half a semitone.
 - **Factory presets** — ten programs (Init, Lush Strings, Analog Brass, PWM Pad,
   Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise)
-  exposed through the AU preset menu in the host.
+  exposed through the AU preset menu in the host, plus an in-plugin preset browser
+  in the panel header.
+- **Arpeggiator** (not on the original 106) — tempo-synced to the host. Modes:
+  Up, Down, Up/Down, Down/Up, Random, As Played. Rate: 1/4 to 1/32 including
+  triplets. Octave range 1-4, adjustable gate length, and Hold/latch. It locks to
+  the host's transport grid when playing and free-runs (at the host tempo) when
+  stopped, so held chords still arpeggiate. Controllers such as the mod wheel pass
+  straight through.
 
 ## Building
 

@@ -8,12 +8,13 @@ namespace
     const juce::Colour kRedCap     (0xffe04b3a);
     const juce::Colour kGreenCap   (0xff58b368);
     const juce::Colour kWhiteCap   (0xffe8e8e8);
+    const juce::Colour kOrangeCap  (0xffe08030);
     const juce::Colour kOrangeLine (0xffe08030);
 
     constexpr int kHeaderH   = 46;
     constexpr int kSectionY  = 56;
     constexpr int kSectionH  = 244;
-    constexpr int kFaderW    = 46;
+    constexpr int kFaderW    = 40;
     constexpr int kLabelH    = 26;
 }
 
@@ -65,6 +66,14 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     chorusIBtn  = &addToggle ("chorusI",  "I");
     chorusIIBtn = &addToggle ("chorusII", "II");
 
+    // Arpeggiator (not on the original 106)
+    arpOnBtn   = &addToggle ("arpOn",   "ON");
+    arpHoldBtn = &addToggle ("arpHold", "HOLD");
+    arpMode = &addFader ("arpMode",    "MODE", kOrangeCap, true);
+    arpRate = &addFader ("arpRate",    "RATE", kOrangeCap, true);
+    arpOct  = &addFader ("arpOctaves", "OCT",  kOrangeCap, true);
+    arpGate = &addFader ("arpGate",    "GATE", kOrangeCap);
+
     // Preset browser in the header.
     for (int i = 0; i < processor.getNumPrograms(); ++i)
         presetBox.addItem (processor.getProgramName (i), i + 1);   // item IDs are 1-based
@@ -85,7 +94,7 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
 
     lastSeenProgram = processor.getCurrentProgram();
 
-    setSize (1336, 320);
+    setSize (1430, 320);
 
     // Poll the processor so host-driven program changes are reflected here too.
     startTimerHz (10);
@@ -201,7 +210,7 @@ void Juno106AudioProcessorEditor::resized()
     placeFader (dcoPwm, x);
     placeFader (pwmSrc, x);
 
-    const int btnW = 52;
+    const int btnW = 46;
     sawBtn->button.setBounds   (x + 4, kSectionY + 40, btnW, 34);
     pulseBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
     x += btnW + 8;
@@ -244,6 +253,17 @@ void Juno106AudioProcessorEditor::resized()
     chorusIBtn->button.setBounds  (x + 4, kSectionY + 40, btnW, 34);
     chorusIIBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
     x += btnW + 12;
+    endSection (s);
+
+    // Arpeggiator
+    s = beginSection ("ARP");
+    arpOnBtn->button.setBounds   (x + 4, kSectionY + 40, btnW, 34);
+    arpHoldBtn->button.setBounds (x + 4, kSectionY + 90, btnW, 34);
+    x += btnW + 8;
+    placeFader (arpMode, x);
+    placeFader (arpRate, x);
+    placeFader (arpOct, x);
+    placeFader (arpGate, x);
     endSection (s);
 }
 

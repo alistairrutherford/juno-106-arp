@@ -19,6 +19,7 @@
       <FILE id="fDsp01" name="JunoDsp.h" compile="0" resource="0" file="Source/JunoDsp.h"/>
       <FILE id="fVoi01" name="JunoVoice.h" compile="0" resource="0" file="Source/JunoVoice.h"/>
       <FILE id="fCho01" name="JunoChorus.h" compile="0" resource="0" file="Source/JunoChorus.h"/>
+      <FILE id="fArp01" name="Arpeggiator.h" compile="0" resource="0" file="Source/Arpeggiator.h"/>
       <FILE id="fLnf01" name="JunoLookAndFeel.h" compile="0" resource="0"
             file="Source/JunoLookAndFeel.h"/>
     </GROUP>

@@ -114,6 +114,7 @@
 		9D744363A4ED5288B21C9395 /* AudioToolbox.framework */ /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		9DC4C361D7D2DBF7594F38B3 /* include_juce_gui_basics_5.cpp */ /* include_juce_gui_basics_5.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = include_juce_gui_basics_5.cpp; path = ../../JuceLibraryCode/include_juce_gui_basics_5.cpp; sourceTree = SOURCE_ROOT; };
 		9EC0EED8705D364495ED54EB /* Shared Code */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libJuno106.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A38A280C4DD58152E2400832 /* Arpeggiator.h */ /* Arpeggiator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Arpeggiator.h; path = ../../Source/Arpeggiator.h; sourceTree = SOURCE_ROOT; };
 		AE0C47293E4F1793C6FE5A28 /* JunoDsp.h */ /* JunoDsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = JunoDsp.h; path = ../../Source/JunoDsp.h; sourceTree = SOURCE_ROOT; };
 		B07A2A65977E17200C929645 /* Info-AU.plist */ /* Info-AU.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-AU.plist"; path = "Info-AU.plist"; sourceTree = SOURCE_ROOT; };
 		B2DA3DC496CDC7ECB13355EA /* include_juce_core_CompilationTime.cpp */ /* include_juce_core_CompilationTime.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = include_juce_core_CompilationTime.cpp; path = ../../JuceLibraryCode/include_juce_core_CompilationTime.cpp; sourceTree = SOURCE_ROOT; };
@@ -281,6 +282,7 @@
 				AE0C47293E4F1793C6FE5A28,
 				D525CBE983033753D3EBF109,
 				8386EEDABADC97AE45668B4B,
+				A38A280C4DD58152E2400832,
 				25B292B194595A3DFA1B0549,
 			);
 			name = Source;
