@@ -4,7 +4,7 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="1.0.0"
               companyName="Alistair Rutherford" bundleIdentifier="com.alistairrutherford.juno106"
               pluginFormats="buildAU,buildStandalone" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              pluginName="Juno 106" pluginDesc="Juno-106 style polyphonic synthesizer"
+              pluginName="Juno 106-ARP" pluginDesc="Juno-106 style polyphonic synthesizer with arpeggiator"
               pluginManufacturer="Alistair Rutherford" pluginManufacturerCode="ARut"
               pluginCode="Jn06" cppLanguageStandard="17">
   <MAINGROUP id="mainGp" name="Juno106">

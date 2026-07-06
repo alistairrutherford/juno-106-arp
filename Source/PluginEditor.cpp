@@ -278,12 +278,12 @@ void Juno106AudioProcessorEditor::paint (juce::Graphics& g)
     g.fillRect (0, kHeaderH - 3, getWidth(), 3);
 
     g.setColour (juce::Colours::white);
-    g.setFont (juce::Font (juce::FontOptions (23.0f, juce::Font::bold | juce::Font::italic)));
-    g.drawText ("Roland Juno 106-ARP", 16, 0, 340, kHeaderH - 4, juce::Justification::centredLeft);
+    g.setFont (juce::Font (juce::FontOptions (26.0f, juce::Font::bold | juce::Font::italic)));
+    g.drawText ("Juno 106-ARP", 16, 0, 240, kHeaderH - 4, juce::Justification::centredLeft);
 
     g.setColour (juce::Colours::white.withAlpha (0.55f));
     g.setFont (juce::Font (juce::FontOptions (12.0f)));
-    g.drawText ("POLYPHONIC SYNTHESIZER", 366, 0, 300, kHeaderH - 4, juce::Justification::centredLeft);
+    g.drawText ("POLYPHONIC SYNTHESIZER", 266, 0, 300, kHeaderH - 4, juce::Justification::centredLeft);
 
     // Caption to the left of the preset browser.
     g.setColour (juce::Colours::white.withAlpha (0.6f));

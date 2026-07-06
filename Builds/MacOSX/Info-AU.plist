@@ -29,9 +29,9 @@
     <array>
       <dict>
         <key>name</key>
-        <string>Alistair Rutherford: Juno 106</string>
+        <string>Alistair Rutherford: Juno 106-ARP</string>
         <key>description</key>
-        <string>Juno-106 style polyphonic synthesizer</string>
+        <string>Juno-106 style polyphonic synthesizer with arpeggiator</string>
         <key>factoryFunction</key>
         <string>Juno106AUFactory</string>
         <key>manufacturer</key>
