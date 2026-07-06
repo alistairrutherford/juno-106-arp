@@ -65,12 +65,52 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     chorusIBtn  = &addToggle ("chorusI",  "I");
     chorusIIBtn = &addToggle ("chorusII", "II");
 
+    // Preset browser in the header.
+    for (int i = 0; i < processor.getNumPrograms(); ++i)
+        presetBox.addItem (processor.getProgramName (i), i + 1);   // item IDs are 1-based
+
+    presetBox.setJustificationType (juce::Justification::centredLeft);
+    presetBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a2e));
+    presetBox.setColour (juce::ComboBox::outlineColourId, juce::Colours::white.withAlpha (0.25f));
+    presetBox.setColour (juce::ComboBox::textColourId, juce::Colours::white);
+    presetBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xffe08030));
+    presetBox.setSelectedId (processor.getCurrentProgram() + 1, juce::dontSendNotification);
+    presetBox.onChange = [this]
+    {
+        const int index = presetBox.getSelectedId() - 1;
+        if (index >= 0)
+            loadPreset (index);
+    };
+    addAndMakeVisible (presetBox);
+
+    lastSeenProgram = processor.getCurrentProgram();
+
     setSize (1336, 320);
+
+    // Poll the processor so host-driven program changes are reflected here too.
+    startTimerHz (10);
 }
 
 Juno106AudioProcessorEditor::~Juno106AudioProcessorEditor()
 {
+    stopTimer();
     setLookAndFeel (nullptr);
+}
+
+void Juno106AudioProcessorEditor::loadPreset (int index)
+{
+    processor.setCurrentProgram (index);
+    lastSeenProgram = index;
+}
+
+void Juno106AudioProcessorEditor::timerCallback()
+{
+    const int prog = processor.getCurrentProgram();
+    if (prog != lastSeenProgram)
+    {
+        lastSeenProgram = prog;
+        presetBox.setSelectedId (prog + 1, juce::dontSendNotification);
+    }
 }
 
 //==============================================================================
@@ -120,6 +160,10 @@ Juno106AudioProcessorEditor::Toggle& Juno106AudioProcessorEditor::addToggle (
 //==============================================================================
 void Juno106AudioProcessorEditor::resized()
 {
+    // Preset browser sits at the right end of the header strip.
+    const int boxW = 220, boxH = 26;
+    presetBox.setBounds (getWidth() - boxW - 16, (kHeaderH - boxH) / 2, boxW, boxH);
+
     sections.clear();
 
     int x = 14;
@@ -220,6 +264,12 @@ void Juno106AudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white.withAlpha (0.55f));
     g.setFont (juce::Font (juce::FontOptions (12.0f)));
     g.drawText ("POLYPHONIC SYNTHESIZER", 240, 0, 300, kHeaderH - 4, juce::Justification::centredLeft);
+
+    // Caption to the left of the preset browser.
+    g.setColour (juce::Colours::white.withAlpha (0.6f));
+    g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
+    g.drawText ("PRESET", presetBox.getX() - 66, 0, 60, kHeaderH - 2,
+                juce::Justification::centredRight);
 
     // Section boxes and titles
     for (const auto& section : sections)

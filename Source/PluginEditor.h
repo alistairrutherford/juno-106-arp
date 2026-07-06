@@ -5,7 +5,8 @@
 #include "JunoLookAndFeel.h"
 
 //==============================================================================
-class Juno106AudioProcessorEditor : public juce::AudioProcessorEditor
+class Juno106AudioProcessorEditor : public juce::AudioProcessorEditor,
+                                    private juce::Timer
 {
 public:
     explicit Juno106AudioProcessorEditor (Juno106AudioProcessor&);
@@ -13,6 +14,9 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+private:
+    void timerCallback() override;   // keeps the preset box in sync with the host
 
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -41,8 +45,13 @@ private:
                      juce::Colour capColour, bool snapToInt = false);
     Toggle& addToggle (const juce::String& paramID, const juce::String& text);
 
+    void loadPreset (int index);
+
     Juno106AudioProcessor& processor;
     JunoLookAndFeel lookAndFeel;
+
+    juce::ComboBox presetBox;
+    int lastSeenProgram = -1;
 
     std::vector<std::unique_ptr<Fader>> faders;
     std::vector<std::unique_ptr<Toggle>> toggles;
