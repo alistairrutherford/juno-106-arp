@@ -57,6 +57,7 @@ public:
         lastStepIndex = std::numeric_limits<long long>::min();
         freeQuarter = 0.0;
         latchArmed = false;
+        wasHold = false;
         rng.setSeedRandomly();
     }
 
@@ -92,6 +93,25 @@ public:
 
         // 1. Absorb note on/off, pass other messages through.
         bool sequenceDirty = false;
+
+        // Releasing HOLD drops any latched notes: keep only keys still physically
+        // held, so the arp stops when nothing is under the fingers.
+        if (wasHold && ! p.hold)
+        {
+            const auto before = held.size();
+            held.erase (std::remove_if (held.begin(), held.end(),
+                            [this] (const Note& n)
+                            {
+                                return std::find (physicallyDown.begin(), physicallyDown.end(), n.note)
+                                       == physicallyDown.end();
+                            }),
+                        held.end());
+            latchArmed = false;
+            if (held.size() != before)
+                sequenceDirty = true;
+        }
+        wasHold = p.hold;
+
         for (const auto meta : midi)
         {
             const auto m = meta.getMessage();
@@ -114,7 +134,17 @@ public:
         }
 
         if (sequenceDirty)
+        {
             rebuildSequence (p);
+
+            // If nothing is left to play, stop the sounding note immediately.
+            if (sequence.empty() && activeNote >= 0)
+            {
+                output.addEvent (juce::MidiMessage::noteOff (1, activeNote), 0);
+                activeNote = -1;
+                noteOffCountdown = -1;
+            }
+        }
 
         // 2. Advance the clock sample by sample and emit steps on the grid.
         const double inc          = bpm / 60.0 / sampleRate;      // quarter notes per sample
@@ -284,5 +314,6 @@ private:
     int  noteOffCountdown = -1;
     double freeQuarter = 0.0;
     bool latchArmed = false;
+    bool wasHold = false;
     juce::Random rng;
 };
