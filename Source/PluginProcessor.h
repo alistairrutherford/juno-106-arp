@@ -36,6 +36,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Ask the audio thread to clear the arpeggiator's held-note state on the
+    // next block (e.g. after loading a preset). Thread-safe.
+    void requestArpReset() noexcept { arpResetRequested.store (true); }
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
@@ -47,6 +51,7 @@ private:
 
     float lfoPhase = 0.0f;
     int currentProgram = 0;
+    std::atomic<bool> arpResetRequested { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Juno106AudioProcessor)
 };

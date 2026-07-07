@@ -75,6 +75,39 @@ int main()
     check (std::abs (rawVal (proc, "vcfFreq")   - wantVcf)   < 1.0e-4f, "Load restores VCF freq");
     check (renderRms (proc) > 1.0e-3, "Loaded preset produces sound");
 
+    // Arp ON with the host transport STOPPED (no playhead => free-run) must
+    // still turn held keys into sound.
+    setNorm (proc, "arpOn", 1.0f);
+    check (renderRms (proc) > 1.0e-3, "Arp on + transport stopped produces sound");
+
+    // Fuzz: no random preset may ever make the plugin emit NaN/Inf (a host such
+    // as Ableton disables a device that outputs NaN, which kills MIDI + sound).
+    {
+        juce::Random rng (0xAB1E);
+        auto params = proc.getParameters();
+        bool anyBad = false;
+        for (int trial = 0; trial < 300 && ! anyBad; ++trial)
+        {
+            for (auto* p : params)
+                if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
+                    rp->setValueNotifyingHost (rng.nextFloat());
+
+            juce::MidiBuffer noteOn; noteOn.addEvent (juce::MidiMessage::noteOn (1, 48 + rng.nextInt (36), (juce::uint8) 100), 0);
+            juce::AudioBuffer<float> buf (2, 512); juce::MidiBuffer empty;
+            for (int b = 0; b < 12 && ! anyBad; ++b)
+            {
+                buf.clear();
+                proc.processBlock (buf, b == 0 ? noteOn : empty);
+                for (int ch = 0; ch < 2; ++ch)
+                    for (int i = 0; i < 512; ++i)
+                        if (! std::isfinite (buf.getSample (ch, i))) anyBad = true;
+            }
+            juce::MidiBuffer off; off.addEvent (juce::MidiMessage::noteOff (1, 48, (juce::uint8) 0), 0);
+            buf.clear(); proc.processBlock (buf, off);
+        }
+        check (! anyBad, "No random preset produces NaN/Inf output (300 trials)");
+    }
+
     file.deleteFile();
     std::cout << (failures == 0 ? "\nALL TESTS PASSED\n" : "\nTESTS FAILED\n");
     return failures == 0 ? 0 : 1;

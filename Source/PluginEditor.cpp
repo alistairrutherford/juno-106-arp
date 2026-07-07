@@ -157,6 +157,7 @@ Juno106AudioProcessorEditor::~Juno106AudioProcessorEditor()
 void Juno106AudioProcessorEditor::loadPreset (int index)
 {
     processor.setCurrentProgram (index);
+    processor.requestArpReset();
     lastSeenProgram = index;
     presetBox.setSelectedId (index + 1, juce::dontSendNotification);
 }
@@ -193,7 +194,10 @@ void Juno106AudioProcessorEditor::applyPresetFile (const juce::File& file)
 
     if (auto xml = juce::XmlDocument::parse (file))
         if (xml->hasTagName (processor.apvts.state.getType()))
+        {
             processor.apvts.replaceState (juce::ValueTree::fromXml (*xml));
+            processor.requestArpReset();
+        }
 }
 
 void Juno106AudioProcessorEditor::savePreset()
@@ -214,6 +218,13 @@ void Juno106AudioProcessorEditor::savePreset()
                                   file = file.withFileExtension ("juno");
                                   if (auto xml = processor.apvts.copyState().createXml())
                                       xml->writeTo (file);
+
+                                  // Add the saved preset to the list and select it.
+                                  int j = userFiles.indexOf (file);
+                                  if (j < 0) { userFiles.add (file); j = userFiles.size() - 1; }
+
+                                  userPresetActive = true;
+                                  refreshPresetList (kUserIdBase + j);
                               });
 }
 

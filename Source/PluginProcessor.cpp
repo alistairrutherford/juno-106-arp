@@ -177,6 +177,9 @@ void Juno106AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         ap.gate    = apvts.getRawParameterValue ("arpGate")->load();
         ap.hold    = apvts.getRawParameterValue ("arpHold")->load() > 0.5f;
 
+        if (arpResetRequested.exchange (false))
+            arp.reset();
+
         arp.process (midi, numSamples, ap, bpm, ppq, playing);
     }
 
