@@ -5,6 +5,9 @@ with JUCE. Builds as an **Audio Unit** and **VST3** (universal arm64 + x86_64),
 plus a Standalone app for quick testing. Loads into Ableton Live and any other
 AU/VST3 host on macOS.
 
+![Alt text](/alistairrutherford/juno-106-arp/blob/main/screenshot.jpg?raw=true "Optional Title")
+
+
 ## Architecture (faithful to the original signal path)
 
 ```
