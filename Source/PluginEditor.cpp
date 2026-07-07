@@ -84,21 +84,32 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     arpOct  = &addFader ("arpOctaves", "OCT",  kOrangeCap, true);
     arpGate = &addFader ("arpGate",    "GATE", kOrangeCap);
 
-    // Preset browser in the header.
-    for (int i = 0; i < processor.getNumPrograms(); ++i)
-        presetBox.addItem (processor.getProgramName (i), i + 1);   // item IDs are 1-based
-
+    // Preset browser in the header: factory presets, then user presets.
     presetBox.setJustificationType (juce::Justification::centredLeft);
     presetBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff2a2a2e));
     presetBox.setColour (juce::ComboBox::outlineColourId, juce::Colours::white.withAlpha (0.25f));
     presetBox.setColour (juce::ComboBox::textColourId, juce::Colours::white);
     presetBox.setColour (juce::ComboBox::arrowColourId, juce::Colour (0xffe08030));
-    presetBox.setSelectedId (processor.getCurrentProgram() + 1, juce::dontSendNotification);
     presetBox.onChange = [this]
     {
-        const int index = presetBox.getSelectedId() - 1;
-        if (index >= 0)
-            loadPreset (index);
+        const int id = presetBox.getSelectedId();
+        if (id <= 0)
+            return;
+
+        if (id < kUserIdBase)                 // factory preset
+        {
+            userPresetActive = false;
+            loadPreset (id - 1);
+        }
+        else                                  // user preset file
+        {
+            const int j = id - kUserIdBase;
+            if (juce::isPositiveAndBelow (j, userFiles.size()))
+            {
+                userPresetActive = true;
+                loadUserPreset (userFiles[j]);
+            }
+        }
     };
     addAndMakeVisible (presetBox);
 
@@ -111,21 +122,21 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     setupHeaderButton (prevButton, "<");
     setupHeaderButton (nextButton, ">");
     setupHeaderButton (saveButton, "SAVE");
-    setupHeaderButton (loadButton, "LOAD");
 
+    // Prev/next step through every item in the list (factory + user).
     prevButton.onClick = [this]
     {
-        const int i = processor.getCurrentProgram() - 1;
-        if (i >= 0) loadPreset (i);
+        const int idx = presetBox.getSelectedItemIndex();
+        if (idx > 0) presetBox.setSelectedItemIndex (idx - 1);   // notifies -> onChange loads
     };
     nextButton.onClick = [this]
     {
-        const int i = processor.getCurrentProgram() + 1;
-        if (i < processor.getNumPrograms()) loadPreset (i);
+        const int idx = presetBox.getSelectedItemIndex();
+        if (idx < presetBox.getNumItems() - 1) presetBox.setSelectedItemIndex (idx + 1);
     };
     saveButton.onClick = [this] { savePreset(); };
-    loadButton.onClick = [this] { loadPresetFile(); };
 
+    refreshPresetList (processor.getCurrentProgram() + 1);
     lastSeenProgram = processor.getCurrentProgram();
 
     setSize (1430, 452);
@@ -147,50 +158,105 @@ void Juno106AudioProcessorEditor::loadPreset (int index)
     presetBox.setSelectedId (index + 1, juce::dontSendNotification);
 }
 
-void Juno106AudioProcessorEditor::savePreset()
+juce::File Juno106AudioProcessorEditor::presetDirectory() const
 {
-    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("Juno106-ARP Presets");
-    dir.createDirectory();
-
-    fileChooser = std::make_unique<juce::FileChooser> ("Save preset", dir, "*.juno");
-    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
-                              | juce::FileBrowserComponent::canSelectFiles
-                              | juce::FileBrowserComponent::warnAboutOverwriting,
-                              [this] (const juce::FileChooser& fc)
-                              {
-                                  auto file = fc.getResult();
-                                  if (file == juce::File())
-                                      return;
-
-                                  file = file.withFileExtension ("juno");
-                                  if (auto xml = processor.apvts.copyState().createXml())
-                                      xml->writeTo (file);
-                              });
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Juno106-ARP")
+               .getChildFile ("Presets");
 }
 
-void Juno106AudioProcessorEditor::loadPresetFile()
+void Juno106AudioProcessorEditor::refreshPresetList (int idToSelect)
 {
-    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("Juno106-ARP Presets");
+    presetBox.clear (juce::dontSendNotification);
+    userFiles.clear();
 
-    fileChooser = std::make_unique<juce::FileChooser> ("Load preset", dir, "*.juno");
-    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                              | juce::FileBrowserComponent::canSelectFiles,
-                              [this] (const juce::FileChooser& fc)
-                              {
-                                  auto file = fc.getResult();
-                                  if (! file.existsAsFile())
-                                      return;
+    // Factory presets: IDs 1..N.
+    for (int i = 0; i < processor.getNumPrograms(); ++i)
+        presetBox.addItem (processor.getProgramName (i), i + 1);
 
-                                  if (auto xml = juce::XmlDocument::parse (file))
-                                      if (xml->hasTagName (processor.apvts.state.getType()))
-                                          processor.apvts.replaceState (juce::ValueTree::fromXml (*xml));
-                              });
+    // User presets from disk: IDs kUserIdBase..
+    auto files = presetDirectory().findChildFiles (juce::File::findFiles, false, "*.juno");
+
+    struct NameComparator
+    {
+        static int compareElements (const juce::File& a, const juce::File& b)
+        {
+            return a.getFileName().compareIgnoreCase (b.getFileName());
+        }
+    };
+    NameComparator comparator;
+    files.sort (comparator);
+
+    if (! files.isEmpty())
+        presetBox.addSeparator();
+
+    for (const auto& f : files)
+    {
+        userFiles.add (f);
+        presetBox.addItem (f.getFileNameWithoutExtension(), kUserIdBase + userFiles.size() - 1);
+    }
+
+    if (idToSelect > 0)
+        presetBox.setSelectedId (idToSelect, juce::dontSendNotification);
+}
+
+void Juno106AudioProcessorEditor::loadUserPreset (const juce::File& file)
+{
+    if (! file.existsAsFile())
+        return;
+
+    if (auto xml = juce::XmlDocument::parse (file))
+        if (xml->hasTagName (processor.apvts.state.getType()))
+            processor.apvts.replaceState (juce::ValueTree::fromXml (*xml));
+}
+
+void Juno106AudioProcessorEditor::savePreset()
+{
+    auto* aw = new juce::AlertWindow ("Save Preset",
+                                      "Name this preset:",
+                                      juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", "My Preset");
+    aw->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    aw->enterModalState (true,
+        juce::ModalCallbackFunction::create ([this, aw] (int result)
+        {
+            if (result == 1)
+            {
+                const auto name = aw->getTextEditorContents ("name").trim();
+                if (name.isNotEmpty())
+                {
+                    auto dir = presetDirectory();
+                    dir.createDirectory();
+                    auto file = dir.getChildFile (juce::File::createLegalFileName (name)).withFileExtension ("juno");
+
+                    if (auto xml = processor.apvts.copyState().createXml())
+                        xml->writeTo (file);
+
+                    // Rebuild the list and select the just-saved preset.
+                    refreshPresetList();
+                    for (int j = 0; j < userFiles.size(); ++j)
+                        if (userFiles[j] == file)
+                        {
+                            userPresetActive = true;
+                            presetBox.setSelectedId (kUserIdBase + j, juce::dontSendNotification);
+                            break;
+                        }
+                }
+            }
+            delete aw;
+        }),
+        false);
 }
 
 void Juno106AudioProcessorEditor::timerCallback()
 {
+    // Don't override a user preset the player has selected; only track
+    // host-driven factory program changes.
+    if (userPresetActive)
+        return;
+
     const int prog = processor.getCurrentProgram();
     if (prog != lastSeenProgram)
     {
@@ -259,14 +325,13 @@ Juno106AudioProcessorEditor::Toggle& Juno106AudioProcessorEditor::addToggle (
 //==============================================================================
 void Juno106AudioProcessorEditor::resized()
 {
-    // Header toolbar (right to left): LOAD, SAVE, >, preset box, <.
+    // Header toolbar (right to left): SAVE, >, preset box, <.
     const int hy = (kHeaderH - 26) / 2;
     int hx = getWidth() - 16;
     auto placeRight = [&] (juce::Component& c, int w) { hx -= w; c.setBounds (hx, hy, w, 26); hx -= 6; };
-    placeRight (loadButton, 52);
     placeRight (saveButton, 52);
     placeRight (nextButton, 26);
-    placeRight (presetBox, 190);
+    placeRight (presetBox, 200);
     placeRight (prevButton, 26);
 
     sections.clear();

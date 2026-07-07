@@ -49,20 +49,26 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   when stopped. Controllers such as the mod wheel pass straight through.
 - **Presets** — ten factory programs (Init, Lush Strings, Analog Brass, PWM Pad,
   Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise)
-  exposed through the host preset menu, an in-plugin preset browser with prev/next,
-  and **Save/Load** of user patches to `.juno` files.
+  plus **user presets**. The header dropdown lists factory presets followed by your
+  saved ones; prev/next step through the whole list. **Save** prompts for a name,
+  writes a `.juno` file to `~/Library/Application Support/Juno106-ARP/Presets/`, and
+  selects the new preset in the list. Selecting any user preset recalls it.
 
 ## Tests
 
-`Tests/run_tests.sh` compiles and runs the arpeggiator and DSP unit tests against
-the JUCE modules (Xcode clang only, no cmake):
+`Tests/run_tests.sh` compiles and runs the arpeggiator, DSP and voice unit tests
+against the JUCE modules (Xcode clang only, no cmake):
 
 ```sh
 JUCE_DIR=~/Development/JUCE Tests/run_tests.sh
 ```
 
-CI (`.github/workflows/build.yml`) builds the AU/VST3/Standalone and runs these
-tests on every push.
+`Tests/run_integration.sh` links against the built plugin and checks that a preset
+save/load round trip restores parameters *and* still produces audio (needs a
+Release build first).
+
+CI (`.github/workflows/build.yml`) builds the AU/VST3/Standalone and runs both on
+every push.
 
 ## Building
 

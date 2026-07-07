@@ -46,3 +46,6 @@ jobs:
 
       - name: Run unit tests
         run: JUCE_DIR="$GITHUB_WORKSPACE/JUCE" repo/Tests/run_tests.sh
+
+      - name: Run integration test (state round-trip + audio)
+        run: JUCE_DIR="$GITHUB_WORKSPACE/JUCE" repo/Tests/run_integration.sh
