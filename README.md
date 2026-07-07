@@ -48,11 +48,11 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   It locks to the host transport grid when playing and free-runs at the host tempo
   when stopped. Controllers such as the mod wheel pass straight through.
 - **Presets** — ten factory programs (Init, Lush Strings, Analog Brass, PWM Pad,
-  Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise)
-  plus **user presets**. The header dropdown lists factory presets followed by your
-  saved ones; prev/next step through the whole list. **Save** prompts for a name,
-  writes a `.juno` file to `~/Library/Application Support/Juno106-ARP/Presets/`, and
-  selects the new preset in the list. Selecting any user preset recalls it.
+  Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise).
+  A fresh instance shows only these. **Save** writes the current patch to a `.juno`
+  file you choose. **Load** opens a `.juno` file; the loaded patch becomes the
+  selection and is added to the dropdown for the rest of the session, so you can
+  flip back to it. prev/next step through the whole list.
 
 ## Tests
 

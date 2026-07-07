@@ -47,20 +47,22 @@ private:
 
     void loadPreset (int index);
     void savePreset();
-    void loadUserPreset (const juce::File&);
+    void loadPresetFile();
+    void applyPresetFile (const juce::File&);
     void refreshPresetList (int idToSelect = -1);
-    juce::File presetDirectory() const;
+    juce::File defaultPresetDir() const;
 
     Juno106AudioProcessor& processor;
     JunoLookAndFeel lookAndFeel;
 
     juce::ComboBox presetBox;
-    juce::TextButton prevButton, nextButton, saveButton;
-    juce::Array<juce::File> userFiles;   // parallel to combo IDs 1001+
+    juce::TextButton prevButton, nextButton, saveButton, loadButton;
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::Array<juce::File> userFiles;   // loaded this session; combo IDs 1001+
     bool userPresetActive = false;
     int lastSeenProgram = -1;
 
-    // ComboBox item-ID scheme: factory presets use 1..N, user presets 1001+.
+    // ComboBox item-ID scheme: factory presets use 1..N, session presets 1001+.
     static constexpr int kUserIdBase = 1001;
 
     std::vector<std::unique_ptr<Fader>> faders;
