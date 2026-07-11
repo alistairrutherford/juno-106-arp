@@ -36,6 +36,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Shared with the editor's on-screen keyboard: shows incoming notes and
+    // injects notes clicked with the mouse.
+    juce::MidiKeyboardState keyboardState;
+
     // Ask the audio thread to clear the arpeggiator's held-note state on the
     // next block (e.g. after loading a preset). Thread-safe.
     void requestArpReset() noexcept { arpResetRequested.store (true); }

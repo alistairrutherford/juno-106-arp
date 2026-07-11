@@ -57,6 +57,7 @@ private:
 
     juce::ComboBox presetBox;
     juce::TextButton prevButton, nextButton, saveButton, loadButton;
+    juce::MidiKeyboardComponent keyboard;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Array<juce::File> userFiles;   // loaded this session; combo IDs 1001+
     bool userPresetActive = false;

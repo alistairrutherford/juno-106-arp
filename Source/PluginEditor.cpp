@@ -22,7 +22,8 @@ namespace
 
 //==============================================================================
 Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p)
+    : AudioProcessorEditor (&p), processor (p),
+      keyboard (p.keyboardState, juce::KeyboardComponentBase::horizontalKeyboard)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -83,6 +84,18 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     arpRate = &addFader ("arpRate",    "RATE", kOrangeCap, true);
     arpOct  = &addFader ("arpOctaves", "OCT",  kOrangeCap, true);
     arpGate = &addFader ("arpGate",    "GATE", kOrangeCap);
+
+    // On-screen keyboard: lights up incoming notes, clickable to play.
+    keyboard.setAvailableRange (36, 96);            // C2..C7
+    keyboard.setScrollButtonsVisible (false);
+    keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (0xffd8d8d8));
+    keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId, juce::Colour (0xff1a1a1d));
+    keyboard.setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, juce::Colours::black.withAlpha (0.6f));
+    keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId, kOrangeLine.withAlpha (0.35f));
+    keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId, kOrangeLine.withAlpha (0.8f));
+    keyboard.setColour (juce::MidiKeyboardComponent::textLabelColourId, juce::Colour (0xff333333));
+    keyboard.setColour (juce::MidiKeyboardComponent::shadowColourId, juce::Colours::transparentBlack);
+    addAndMakeVisible (keyboard);
 
     // Preset browser in the header: factory presets, then user presets.
     presetBox.setJustificationType (juce::Justification::centredLeft);
@@ -444,6 +457,12 @@ void Juno106AudioProcessorEditor::resized()
     s = beginSection ("AFTER");
     placeFader (atVcf, x);
     endSection (s);
+
+    // On-screen keyboard fills the rest of row 2.
+    const int kbX = x + 4;
+    const int kbW = getWidth() - kbX - 20;
+    keyboard.setBounds (kbX, rowY + 18, kbW, rowH - 18 - 10);
+    keyboard.setKeyWidth ((float) kbW / 36.0f);     // 36 white keys in C2..C7
 }
 
 void Juno106AudioProcessorEditor::paint (juce::Graphics& g)

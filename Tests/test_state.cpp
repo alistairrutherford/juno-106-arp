@@ -46,6 +46,21 @@ int main()
 
     check (renderRms (proc) > 1.0e-3, "Default patch produces sound");
 
+    // On-screen keyboard state mirrors incoming MIDI.
+    {
+        juce::AudioBuffer<float> buf (2, 512);
+        juce::MidiBuffer on;  on.addEvent (juce::MidiMessage::noteOn (1, 64, (juce::uint8) 100), 0);
+        proc.processBlock (buf, on);
+        check (proc.keyboardState.isNoteOn (1, 64), "Keyboard state lights incoming note-on");
+
+        juce::MidiBuffer off; off.addEvent (juce::MidiMessage::noteOff (1, 64), 0);
+        buf.clear(); proc.processBlock (buf, off);
+        check (! proc.keyboardState.isNoteOn (1, 64), "Keyboard state clears on note-off");
+
+        juce::MidiBuffer empty;
+        for (int b = 0; b < 120; ++b) { buf.clear(); proc.processBlock (buf, empty); }
+    }
+
     // Distinctive sounding patch.
     setNorm (proc, "sawOn", 1.0f);
     setNorm (proc, "vcaLevel", 1.0f);
