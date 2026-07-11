@@ -23,7 +23,7 @@ namespace
 //==============================================================================
 Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p),
-      keyboard (p.keyboardState, juce::KeyboardComponentBase::horizontalKeyboard)
+      keyboard (p.keyboardState, p.clickState)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -85,8 +85,9 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     arpOct  = &addFader ("arpOctaves", "OCT",  kOrangeCap, true);
     arpGate = &addFader ("arpGate",    "GATE", kOrangeCap);
 
-    // On-screen keyboard: lights up incoming notes, clickable to play.
-    keyboard.setAvailableRange (36, 96);            // C2..C7
+    // On-screen keyboard: shows the notes actually sounding (post-arp),
+    // clickable to play. Full 88-key piano range.
+    keyboard.setAvailableRange (21, 108);           // A0..C8
     keyboard.setScrollButtonsVisible (false);
     keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (0xffd8d8d8));
     keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId, juce::Colour (0xff1a1a1d));
@@ -462,7 +463,7 @@ void Juno106AudioProcessorEditor::resized()
     const int kbX = x + 4;
     const int kbW = getWidth() - kbX - 20;
     keyboard.setBounds (kbX, rowY + 18, kbW, rowH - 18 - 10);
-    keyboard.setKeyWidth ((float) kbW / 36.0f);     // 36 white keys in C2..C7
+    keyboard.setKeyWidth ((float) kbW / 52.0f);     // 52 white keys in A0..C8
 }
 
 void Juno106AudioProcessorEditor::paint (juce::Graphics& g)

@@ -57,7 +57,15 @@ int main()
         buf.clear(); proc.processBlock (buf, off);
         check (! proc.keyboardState.isNoteOn (1, 64), "Keyboard state clears on note-off");
 
+        // GUI clicks are injected ahead of the arp and end up displayed too.
         juce::MidiBuffer empty;
+        proc.clickState.noteOn (1, 72, 0.8f);
+        buf.clear(); proc.processBlock (buf, empty);
+        check (proc.keyboardState.isNoteOn (1, 72), "Clicked key is injected and displayed");
+        proc.clickState.noteOff (1, 72, 0.0f);
+        buf.clear(); proc.processBlock (buf, empty);
+        check (! proc.keyboardState.isNoteOn (1, 72), "Clicked key clears on release");
+
         for (int b = 0; b < 120; ++b) { buf.clear(); proc.processBlock (buf, empty); }
     }
 
@@ -94,6 +102,25 @@ int main()
     // still turn held keys into sound.
     setNorm (proc, "arpOn", 1.0f);
     check (renderRms (proc) > 1.0e-3, "Arp on + transport stopped produces sound");
+
+    // The GUI keyboard shows the ARP OUTPUT: with a held C and octaves=2, the
+    // octave-up C (never physically held) must light up at some point.
+    {
+        setNorm (proc, "arpOctaves", 1.0f / 3.0f);   // choice index 1 -> 2 octaves
+        proc.clickState.noteOn (1, 60, 0.8f);
+        juce::AudioBuffer<float> buf (2, 512); juce::MidiBuffer empty;
+        bool sawOctaveUp = false;
+        for (int b = 0; b < 200 && ! sawOctaveUp; ++b)
+        {
+            buf.clear(); proc.processBlock (buf, empty);
+            sawOctaveUp = proc.keyboardState.isNoteOn (1, 72);
+        }
+        check (sawOctaveUp, "Keyboard displays arp output (octave-up note lights)");
+        proc.clickState.noteOff (1, 60, 0.0f);
+        for (int b = 0; b < 120; ++b) { buf.clear(); proc.processBlock (buf, empty); }
+        setNorm (proc, "arpOn", 0.0f);
+        setNorm (proc, "arpOctaves", 0.0f);
+    }
 
     // Fuzz: no random preset may ever make the plugin emit NaN/Inf (a host such
     // as Ableton disables a device that outputs NaN, which kills MIDI + sound).

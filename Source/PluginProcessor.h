@@ -36,9 +36,13 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    // Shared with the editor's on-screen keyboard: shows incoming notes and
-    // injects notes clicked with the mouse.
+    // On-screen keyboard, split to avoid a feedback loop:
+    // - keyboardState is display-only and fed from the post-arp MIDI stream,
+    //   so it shows the notes actually sounding (the arp pattern "dancing").
+    // - clickState collects notes clicked on the GUI keyboard and injects
+    //   them ahead of the arp, like keys on a MIDI controller.
     juce::MidiKeyboardState keyboardState;
+    juce::MidiKeyboardState clickState;
 
     // Ask the audio thread to clear the arpeggiator's held-note state on the
     // next block (e.g. after loading a preset). Thread-safe.

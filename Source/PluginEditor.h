@@ -55,9 +55,52 @@ private:
     Juno106AudioProcessor& processor;
     JunoLookAndFeel lookAndFeel;
 
+    // Keyboard whose display state (the arp output) is never written by the
+    // mouse; clicks are forwarded to the processor's clickState instead, so
+    // they enter the MIDI stream ahead of the arp like real keys.
+    struct ArpDisplayKeyboard : public juce::MidiKeyboardComponent
+    {
+        ArpDisplayKeyboard (juce::MidiKeyboardState& displayState, juce::MidiKeyboardState& clicks)
+            : MidiKeyboardComponent (displayState, juce::KeyboardComponentBase::horizontalKeyboard),
+              clickState (clicks) {}
+
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            const int note = getNoteAndVelocityAtPosition (e.position).note;
+            if (note >= 0)
+            {
+                clickState.noteOn (1, note, 0.8f);
+                clickedNote = note;
+            }
+        }
+
+        void mouseDrag (const juce::MouseEvent& e) override
+        {
+            const int note = getNoteAndVelocityAtPosition (e.position).note;
+            if (note != clickedNote)
+            {
+                if (clickedNote >= 0) clickState.noteOff (1, clickedNote, 0.0f);
+                if (note >= 0)        clickState.noteOn  (1, note, 0.8f);
+                clickedNote = note;
+            }
+        }
+
+        void mouseUp (const juce::MouseEvent&) override
+        {
+            if (clickedNote >= 0)
+            {
+                clickState.noteOff (1, clickedNote, 0.0f);
+                clickedNote = -1;
+            }
+        }
+
+        juce::MidiKeyboardState& clickState;
+        int clickedNote = -1;
+    };
+
     juce::ComboBox presetBox;
     juce::TextButton prevButton, nextButton, saveButton, loadButton;
-    juce::MidiKeyboardComponent keyboard;
+    ArpDisplayKeyboard keyboard;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Array<juce::File> userFiles;   // loaded this session; combo IDs 1001+
     bool userPresetActive = false;

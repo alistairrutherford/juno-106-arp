@@ -156,9 +156,9 @@ void Juno106AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     const int numSamples = buffer.getNumSamples();
 
-    // On-screen keyboard: light up incoming notes and merge in notes clicked
-    // with the mouse. Runs before the arp so clicked keys feed it too.
-    keyboardState.processNextMidiBuffer (midi, 0, numSamples, true);
+    // Merge in notes clicked on the GUI keyboard, ahead of the arp so they
+    // behave exactly like keys played on a MIDI controller.
+    clickState.processNextMidiBuffer (midi, 0, numSamples, true);
 
     // Arpeggiator: rewrite the MIDI stream before the synth (and the mod-wheel
     // scan) see it. Non-note messages such as CC1 pass straight through.
@@ -186,6 +186,10 @@ void Juno106AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
         arp.process (midi, numSamples, ap, bpm, ppq, playing);
     }
+
+    // Display state: reflect the post-arp stream (what the synth will play)
+    // without injecting anything, so the GUI keyboard shows the arp dancing.
+    keyboardState.processNextMidiBuffer (midi, 0, numSamples, false);
 
     // Mod wheel (CC1) and channel pressure feed the voices' modulation.
     for (const auto metadata : midi)
