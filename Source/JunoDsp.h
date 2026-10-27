@@ -7,6 +7,40 @@ namespace juno
 {
 
 //==============================================================================
+// VCF control ranges, from Roland's Juno-106 Service Notes (1984): cutoff
+// 5 Hz..50 kHz across the FREQ slider, envelope modulation up to 14 octaves,
+// key follow +3/-2 octaves across the C2..C7 keyboard (1 oct/oct about C4).
+namespace calibration
+{
+    constexpr int   version       = 2;      // stored with saved state; 1 = pre-2026-10 ranges
+    constexpr float cutoffMinHz   = 5.0f;
+    constexpr float cutoffDecades = 4.0f;   // 5 Hz -> 50 kHz
+    constexpr float envOctaves    = 14.0f;
+    constexpr int   keyFollowPivotNote = 60;
+
+    inline float cutoffHz (float slider) noexcept
+    {
+        return cutoffMinHz * std::pow (10.0f, cutoffDecades * slider);
+    }
+
+    inline float sliderForCutoffHz (float hz) noexcept
+    {
+        return juce::jlimit (0.0f, 1.0f, std::log10 (hz / cutoffMinHz) / cutoffDecades);
+    }
+
+    // Version-1 ranges, used to convert presets and projects saved before the
+    // recalibration so they keep sounding the same.
+    inline float legacyCutoffHz (float slider) noexcept { return 30.0f * std::pow (2.0f, 9.3f * slider); }
+    constexpr float legacyEnvOctaves = 6.0f;
+
+    inline float migrateVcfFreq (float legacy) noexcept { return sliderForCutoffHz (legacyCutoffHz (legacy)); }
+    inline float migrateVcfEnv  (float legacy) noexcept
+    {
+        return juce::jlimit (0.0f, 1.0f, legacy * legacyEnvOctaves / envOctaves);
+    }
+}
+
+//==============================================================================
 // PolyBLEP band-limiting residual. t = phase [0,1), dt = phase increment.
 inline float polyBlep (float t, float dt) noexcept
 {
@@ -181,7 +215,7 @@ struct LadderZdf
     // filter self-oscillates, like the 80017a chip driven hard.
     float process (float x, float cutoff, float res, float drive) noexcept
     {
-        cutoff = juce::jlimit (20.0f, fs * 0.45f, cutoff);
+        cutoff = juce::jlimit (calibration::cutoffMinHz, fs * 0.45f, cutoff);
 
         const float g  = std::tan (juce::MathConstants<float>::pi * cutoff / fs);
         const float G  = g / (1.0f + g);
@@ -231,10 +265,12 @@ struct HpfSwitch
         setPosition (1);
     }
 
+    // Position 0: +10 dB low shelf below 150 Hz. Positions 2 and 3: one-pole
+    // highpass at 236 Hz and 754 Hz (Service Notes figures; boost per KR-106).
     void setPosition (int newPos) noexcept
     {
         pos = juce::jlimit (0, 3, newPos);
-        const float freq = (pos == 0 ? 120.0f : pos == 2 ? 160.0f : 720.0f);
+        const float freq = (pos == 0 ? 150.0f : pos == 2 ? 236.0f : 754.0f);
         coef = 1.0f - std::exp (-juce::MathConstants<float>::twoPi * freq / fs);
     }
 
@@ -246,7 +282,7 @@ struct HpfSwitch
         lp += coef * (x - lp);
 
         if (pos == 0)
-            return x + 0.5f * lp;   // gentle bass boost
+            return x + 2.1623f * lp;   // +10 dB below the shelf (10^(10/20) - 1)
 
         return x - lp;              // 6 dB/oct highpass
     }

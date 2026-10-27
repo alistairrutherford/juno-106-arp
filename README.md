@@ -72,9 +72,15 @@ python3 -I Tools/import_106_library.py Juno-106-Factory.106 Source/JunoFactoryBa
 
 Notes on fidelity: the 106's VCA LEVEL is a trim, so slider 0 maps to −14 dB rather
 than silence; patches that play the self-oscillating filter (Tomita, Toy Rhodes, FX
-Rise…) start ringing at note-on, as the hardware filter is already running. Cutoff,
-envelope and keyboard-tracking ranges are approximations, so a few patches built on
-extreme settings (Hand Claps, Piccolo) come out quieter than the rest of the bank.
+Rise…) start ringing at note-on, as the hardware filter is already running.
+
+The VCF is calibrated to Roland's Juno-106 Service Notes: cutoff 5 Hz–50 kHz across
+the FREQ slider, envelope modulation up to 14 octaves, keyboard follow +3/−2 octaves
+over the C2–C7 keyboard, and HPF positions of +10 dB bass boost below 150 Hz, flat,
+236 Hz and 754 Hz. Saved state carries a `calibration` version; presets and projects
+saved before this calibration are converted on load so they sound as they did.
+Envelope times are still approximations, so very short noise bursts such as Hand
+Claps come out quieter than the hardware.
 
 ## Tests
 

@@ -58,6 +58,13 @@ public:
     void applyParameterValues (const ParamValues&);
     ParamValues parameterValuesFor (const juno::Juno106Patch&);
 
+    // Saved state carries a calibration version. State from before the filter
+    // recalibration (no version) has its VCF values converted on load so it
+    // sounds as it did when saved.
+    std::unique_ptr<juce::XmlElement> createStateXml();
+    static void migrateStateXml (juce::XmlElement&);
+    static float migrateLegacyValue (const juce::String& paramID, float value);
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 

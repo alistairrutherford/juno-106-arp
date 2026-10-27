@@ -120,6 +120,47 @@ int main()
         check (lowLevel (3) < lowLevel (1), "HPF position 3 cuts 60 Hz vs flat position 1");
     }
 
+    // --- Calibration (Juno-106 Service Notes ranges) ---
+    {
+        namespace cal = juno::calibration;
+        check (std::abs (cal::cutoffHz (0.0f) - 5.0f) < 1.0e-3f,       "FREQ slider 0 -> 5 Hz");
+        check (std::abs (cal::cutoffHz (1.0f) - 50000.0f) < 1.0f,      "FREQ slider 1 -> 50 kHz");
+        check (std::abs (cal::cutoffHz (0.5f) - 500.0f) < 0.01f,       "FREQ slider is exponential (0.5 -> 500 Hz)");
+        check (std::abs (cal::sliderForCutoffHz (cal::cutoffHz (0.37f)) - 0.37f) < 1.0e-5f, "Cutoff <-> slider round trip");
+
+        // Old presets keep their sound: migrated values give the same Hz / octaves.
+        bool freqSame = true;
+        for (float v = 0.0f; v <= 1.0f; v += 0.05f)
+        {
+            const float ratio = cal::cutoffHz (cal::migrateVcfFreq (v)) / cal::legacyCutoffHz (v);
+            freqSame = freqSame && std::abs (ratio - 1.0f) < 1.0e-3f;
+        }
+        check (freqSame, "Migrated VCF freq gives the same cutoff Hz as before");
+        check (std::abs (cal::migrateVcfEnv (0.7f) * cal::envOctaves - 0.7f * cal::legacyEnvOctaves) < 1.0e-4f,
+               "Migrated VCF env gives the same octave sweep as before");
+    }
+
+    // --- HPF positions: gain at a frequency, in dB ---
+    {
+        auto gainDb = [sr] (int pos, float freq)
+        {
+            juno::HpfSwitch h; h.prepare (sr); h.setPosition (pos);
+            double in = 0.0, out = 0.0;
+            for (int i = 0; i < (int) sr; ++i)
+            {
+                const float x = std::sin (juce::MathConstants<float>::twoPi * freq * i / (float) sr);
+                const float y = h.process (x);
+                if (i > (int) sr / 2) { in += (double) x * x; out += (double) y * y; }
+            }
+            return 10.0 * std::log10 (out / in);
+        };
+        check (std::abs (gainDb (2, 236.0f) + 3.0) < 1.0, "HPF position 2 is -3 dB at 236 Hz");
+        check (std::abs (gainDb (3, 754.0f) + 3.0) < 1.0, "HPF position 3 is -3 dB at 754 Hz");
+        check (std::abs (gainDb (0, 30.0f) - 10.0) < 1.0, "HPF position 0 boosts lows by ~10 dB");
+        check (std::abs (gainDb (0, 5000.0f)) < 0.5,      "HPF position 0 leaves highs alone");
+        check (std::abs (gainDb (1, 50.0f)) < 0.01,       "HPF position 1 is flat");
+    }
+
     std::cout << (failures == 0 ? "\nALL TESTS PASSED\n" : "\nTESTS FAILED\n");
     return failures == 0 ? 0 : 1;
 }

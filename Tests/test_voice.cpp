@@ -18,7 +18,7 @@ namespace
     struct Patch
     {
         float sawOn = 1, vcfFreq = 0.7f, vcfRes = 0, vcfKybd = 0.5f;
-        float decay = 0.3f, sustain = 0.8f;
+        float decay = 0.3f, sustain = 0.8f, vcfEnv = 0.0f;
     };
 
     struct Result { double rms = 0; double earlyRms = 0; bool bad = false; int crossings = 0; float peak = 0; };
@@ -34,7 +34,7 @@ namespace
 
         std::atomic<float> lfoRate {5}, lfoDelay {0}, dcoRange {1}, dcoLfo {0}, dcoPwm {0},
             pwmSource {0}, sawOn {patch.sawOn}, pulseOn {0}, subLevel {0}, noiseLevel {0},
-            vcfFreq {patch.vcfFreq}, vcfRes {patch.vcfRes}, vcfEnvPol {0}, vcfEnv {0}, vcfLfo {0},
+            vcfFreq {patch.vcfFreq}, vcfRes {patch.vcfRes}, vcfEnvPol {0}, vcfEnv {patch.vcfEnv}, vcfLfo {0},
             vcfKybd {patch.vcfKybd}, envAttack {0.005f}, envDecay {patch.decay}, envSustain {patch.sustain},
             envRelease {0.2f}, vcaMode {0}, vcaLevel {0.8f}, portTime {0}, vcfDrive {0}, bendRange {2},
             benderVcf {0}, velVcf {0}, velVca {0}, atVcf {0};
@@ -116,7 +116,7 @@ int main()
     // Percussive filter-only patch (Resonance Funk: 20 ms decay, sustain 0):
     // the 106's filter is already ringing at note-on, so this still sounds.
     Patch funk; funk.sawOn = 0; funk.vcfFreq = 0.2f; funk.vcfRes = 1.0f; funk.vcfKybd = 0.7f;
-    funk.decay = 0.02f; funk.sustain = 0.0f;
+    funk.decay = 0.02f; funk.sustain = 0.0f; funk.vcfEnv = 0.35f;   // as stored in the factory patch
     const auto blip = render (funk);
     std::cout << "        (percussive patch peak " << blip.peak << ")\n";
     check (blip.peak > 2.0e-2f, "Percussive self-oscillating patch is audible (filter rings from note-on)");

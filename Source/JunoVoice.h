@@ -142,7 +142,7 @@ public:
         const bool  pulseOn    = shared.pulseOn->load() > 0.5f;
         const float subLvl     = shared.subLevel->load();
         const float noiseLvl   = shared.noiseLevel->load();
-        const float cutoffBase = 30.0f * std::pow (2.0f, shared.vcfFreq->load() * 9.3f);
+        const float cutoffBase = juno::calibration::cutoffHz (shared.vcfFreq->load());
         const float res        = shared.vcfRes->load();
         const float envPol     = shared.vcfEnvPol->load() > 0.5f ? -1.0f : 1.0f;
         const float envAmt     = shared.vcfEnv->load();
@@ -174,7 +174,7 @@ public:
         const float glideCoef  = portTime > 0.005f
                                      ? 1.0f - std::exp (-1.0f / (portTime * fs))
                                      : 1.0f;
-        const float keyFollow  = std::pow (2.0f, ((float) note - 60.0f) / 12.0f * kybd);
+        const float keyFollow  = std::pow (2.0f, (float) (note - juno::calibration::keyFollowPivotNote) / 12.0f * kybd);
 
         const int delaySamples = (int) (lfoDelayS * fs);
         const int riseSamples  = juce::jmax (1, (int) (juce::jmax (0.05f, lfoDelayS * 0.5f) * fs));
@@ -239,7 +239,7 @@ public:
 
             // VCF with env / LFO / key-follow / bender / velocity / aftertouch
             // modulation (all in octaves).
-            const float octMod = envPol * envAmt * envVal * 6.0f + lfoFiltAmt * lfo * 1.5f
+            const float octMod = envPol * envAmt * envVal * juno::calibration::envOctaves + lfoFiltAmt * lfo * 1.5f
                                + benderOct + velOct + atOct;
             const float cutoff = smVcfBase * keyFollow * voiceCutoffTrim * std::pow (2.0f, octMod);
 

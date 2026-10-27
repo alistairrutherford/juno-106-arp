@@ -236,6 +236,7 @@ Juno106AudioProcessorEditor::readPresetFile (const juce::File& file)
     if (auto xml = juce::XmlDocument::parse (file))
         if (xml->hasTagName (processor.apvts.state.getType()))
         {
+            Juno106AudioProcessor::migrateStateXml (*xml);   // saved before the filter recalibration
             Juno106AudioProcessor::ParamValues values;
             for (auto* child : xml->getChildIterator())
                 if (child->hasAttribute ("id") && child->hasAttribute ("value"))
@@ -283,7 +284,7 @@ void Juno106AudioProcessorEditor::savePreset()
                                       return;
 
                                   file = file.withFileExtension ("juno");
-                                  if (auto xml = processor.apvts.copyState().createXml())
+                                  if (auto xml = processor.createStateXml())
                                       xml->writeTo (file);
 
                                   // Add the saved preset to the list and select it.

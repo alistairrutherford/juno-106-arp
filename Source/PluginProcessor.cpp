@@ -97,7 +97,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Juno106AudioProcessor::creat
                                                juce::StringArray { "0", "1", "2", "3" }, 1));
 
     // VCF
-    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfFreq", 1 }, "VCF Freq", Range (0.0f, 1.0f), 0.7f));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfFreq", 1 }, "VCF Freq", Range (0.0f, 1.0f),
+                                              juno::calibration::migrateVcfFreq (0.7f)));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfRes", 1 },  "VCF Res",  Range (0.0f, 1.0f), 0.0f));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfDrive", 1 }, "VCF Drive", Range (0.0f, 1.0f), 0.0f));
     layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "vcfEnvPol", 1 }, "VCF Env Polarity",
@@ -339,9 +340,10 @@ void Juno106AudioProcessor::setCurrentProgram (int index)
     {
         currentProgram = index;
 
+        // The table above is voiced in the version-1 filter ranges.
         ParamValues values;
         for (const auto& [paramID, value] : presets[(size_t) index].values)
-            values.emplace_back (paramID, value);
+            values.emplace_back (paramID, migrateLegacyValue (paramID, value));
 
         applyParameterValues (values);
     }
@@ -402,9 +404,37 @@ Juno106AudioProcessor::ParamValues Juno106AudioProcessor::parameterValuesFor (co
 }
 
 //==============================================================================
+std::unique_ptr<juce::XmlElement> Juno106AudioProcessor::createStateXml()
+{
+    auto xml = apvts.copyState().createXml();
+    if (xml != nullptr)
+        xml->setAttribute ("calibration", juno::calibration::version);
+    return xml;
+}
+
+float Juno106AudioProcessor::migrateLegacyValue (const juce::String& paramID, float value)
+{
+    if (paramID == "vcfFreq") return juno::calibration::migrateVcfFreq (value);
+    if (paramID == "vcfEnv")  return juno::calibration::migrateVcfEnv (value);
+    return value;
+}
+
+void Juno106AudioProcessor::migrateStateXml (juce::XmlElement& xml)
+{
+    if (xml.getIntAttribute ("calibration", 1) >= juno::calibration::version)
+        return;
+
+    for (auto* child : xml.getChildIterator())
+        if (child->hasAttribute ("id") && child->hasAttribute ("value"))
+            child->setAttribute ("value", (double) migrateLegacyValue (child->getStringAttribute ("id"),
+                                                                       (float) child->getDoubleAttribute ("value")));
+
+    xml.setAttribute ("calibration", juno::calibration::version);
+}
+
 void Juno106AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    if (auto xml = createStateXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -412,7 +442,10 @@ void Juno106AudioProcessor::setStateInformation (const void* data, int sizeInByt
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
+        {
+            migrateStateXml (*xml);   // projects saved before the filter recalibration
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        }
 }
 
 juce::AudioProcessorEditor* Juno106AudioProcessor::createEditor()

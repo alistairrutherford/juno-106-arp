@@ -122,6 +122,39 @@ int main()
         setNorm (proc, "arpOctaves", 0.0f);
     }
 
+    // Filter recalibration keeps existing sounds the same.
+    {
+        namespace cal = juno::calibration;
+        auto hzOf = [&] { return cal::cutoffHz (rawVal (proc, "vcfFreq")); };
+        auto near = [] (float a, float b) { return std::abs (a / b - 1.0f) < 2.0e-3f; };
+
+        proc.setCurrentProgram (0);
+        check (near (hzOf(), cal::legacyCutoffHz (0.7f)), "Recalibration: Init cutoff unchanged");
+
+        proc.setCurrentProgram (1);   // Lush Strings, voiced as vcfFreq 0.55 / vcfEnv 0.2
+        check (near (hzOf(), cal::legacyCutoffHz (0.55f))
+                   && std::abs (rawVal (proc, "vcfEnv") * cal::envOctaves - 0.2f * cal::legacyEnvOctaves) < 1.0e-3f,
+               "Recalibration: plugin's own presets keep their cutoff and env sweep");
+
+        // A project saved before the recalibration (no calibration attribute).
+        auto old = proc.createStateXml();
+        old->removeAttribute ("calibration");
+        for (auto* c : old->getChildIterator())
+            if (c->getStringAttribute ("id") == "vcfFreq") c->setAttribute ("value", 0.5);
+        juce::MemoryBlock block;
+        juce::AudioProcessor::copyXmlToBinary (*old, block);
+        proc.setStateInformation (block.getData(), (int) block.getSize());
+        check (near (hzOf(), cal::legacyCutoffHz (0.5f)), "Recalibration: old saved state is converted on load");
+
+        // Current state round-trips without being converted twice.
+        const float before = rawVal (proc, "vcfFreq");
+        juce::MemoryBlock now;
+        proc.getStateInformation (now);
+        proc.setStateInformation (now.getData(), (int) now.getSize());
+        check (std::abs (rawVal (proc, "vcfFreq") - before) < 1.0e-5f, "Recalibration: current state is not converted again");
+        proc.setCurrentProgram (0);
+    }
+
     // Juno-106 SysEx patch -> processor parameters -> sound.
     {
         const juce::uint8 msg[] = {
@@ -198,11 +231,15 @@ int main()
                   << " dB; quietest:";
         for (size_t q = 0; q < 5; ++q)
             std::cout << " " << peaks[q].second << " (" << juce::String (juce::Decibels::gainToDecibels (peaks[q].first), 1) << " dB)";
+        std::cout << "\n        loudest:";
+        for (size_t q = peaks.size() - 3; q < peaks.size(); ++q)
+            std::cout << " " << peaks[q].second << " (" << juce::String (juce::Decibels::gainToDecibels (peaks[q].first), 1) << " dB)";
         std::cout << "\n";
         if (! silent.isEmpty()) std::cout << "        silent: " << silent.joinIntoString (", ") << "\n";
         if (! broken.isEmpty()) std::cout << "        NaN/Inf: " << broken.joinIntoString (", ") << "\n";
         check (broken.isEmpty(), "No factory patch produces NaN/Inf");
         check (silent.isEmpty(), "Every factory patch produces sound (held C4, peak > -60 dBFS)");
+        check (peaks.back().first < 1.0f, "No factory patch clips a single held note (peak < 0 dBFS)");
     }
 
     // Fuzz: no random preset may ever make the plugin emit NaN/Inf (a host such
