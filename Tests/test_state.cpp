@@ -122,6 +122,31 @@ int main()
         setNorm (proc, "arpOctaves", 0.0f);
     }
 
+    // Juno-106 SysEx patch -> processor parameters -> sound.
+    {
+        const juce::uint8 msg[] = {
+            0xF0, 0x41, 0x30, 0x00, 0x05,                       // patch 5 = "A16"
+            40, 0, 0, 0, 0, 100, 30, 0, 0, 64, 127, 0, 0, 127, 20, 64,   // 16 sliders
+            0x10 | 0x02,                                        // saw, 8', chorus on, level II
+            0x08,                                               // PWM LFO, env +, VCA env, HPF bits 01 -> pos 2
+            0xF7 };
+        auto patches = juno::parseJuno106SysEx (msg, sizeof (msg));
+        check (patches.size() == 1 && patches[0].name() == "A16", "SysEx patch parses as A16");
+
+        setNorm (proc, "arpOn", 1.0f);   // must be reset to default by the import
+        if (! patches.empty())
+            proc.applyParameterValues (proc.parameterValuesFor (patches[0]));
+
+        check (std::abs (rawVal (proc, "vcfFreq") - 100.0f / 127.0f) < 1.0e-3f, "SysEx VCF freq slider maps to same position");
+        check (std::abs (rawVal (proc, "vcaLevel") - 1.0f) < 1.0e-3f,          "SysEx VCA level 127 -> 1.0");
+        check (std::abs (rawVal (proc, "subLevel") - 64.0f / 127.0f) < 1.0e-3f, "SysEx sub slider maps");
+        check (rawVal (proc, "sawOn") > 0.5f && rawVal (proc, "pulseOn") < 0.5f, "SysEx saw on, pulse off");
+        check (rawVal (proc, "chorusII") > 0.5f && rawVal (proc, "chorusI") < 0.5f, "SysEx chorus II");
+        check ((int) rawVal (proc, "hpf") == 2 && (int) rawVal (proc, "dcoRange") == 1, "SysEx HPF pos 2, range 8'");
+        check (rawVal (proc, "arpOn") < 0.5f, "SysEx import resets plugin extras (arp off)");
+        check (renderRms (proc) > 1.0e-3, "Imported Juno-106 patch produces sound");
+    }
+
     // Fuzz: no random preset may ever make the plugin emit NaN/Inf (a host such
     // as Ableton disables a device that outputs NaN, which kills MIDI + sound).
     {

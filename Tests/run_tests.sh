@@ -47,6 +47,7 @@ compile_and_run () {
 compile_and_run test_arp
 compile_and_run test_dsp
 compile_and_run test_voice
+compile_and_run test_sysex
 
 echo ""
 echo "All test binaries passed."

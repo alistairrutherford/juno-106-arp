@@ -324,14 +324,55 @@ void Juno106AudioProcessor::setCurrentProgram (int index)
 
     currentProgram = index;
 
-    // Reset everything to defaults, then apply the preset's overrides.
+    ParamValues values;
+    for (const auto& [paramID, value] : presets[(size_t) index].values)
+        values.emplace_back (paramID, value);
+
+    applyParameterValues (values);
+}
+
+void Juno106AudioProcessor::applyParameterValues (const ParamValues& values)
+{
     for (auto* param : getParameters())
         if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
             ranged->setValueNotifyingHost (ranged->getDefaultValue());
 
-    for (const auto& [paramID, value] : presets[(size_t) index].values)
+    for (const auto& [paramID, value] : values)
         if (auto* param = apvts.getParameter (paramID))
             param->setValueNotifyingHost (param->convertTo0to1 (value));
+
+    requestArpReset();
+}
+
+Juno106AudioProcessor::ParamValues Juno106AudioProcessor::parameterValuesFor (const juno::Juno106Patch& patch)
+{
+    using P = juno::Juno106Patch;
+
+    // Each 106 slider maps to the same relative position on ours.
+    static const std::pair<P::Slider, const char*> sliderMap[] = {
+        { P::lfoRate, "lfoRate" },   { P::lfoDelay, "lfoDelay" }, { P::dcoLfo, "dcoLfo" },
+        { P::dcoPwm, "dcoPwm" },     { P::noise, "noiseLevel" },  { P::vcfFreq, "vcfFreq" },
+        { P::vcfRes, "vcfRes" },     { P::vcfEnv, "vcfEnv" },     { P::vcfLfo, "vcfLfo" },
+        { P::vcfKybd, "vcfKybd" },   { P::vcaLevel, "vcaLevel" }, { P::attack, "attack" },
+        { P::decay, "decay" },       { P::sustain, "sustain" },   { P::release, "release" },
+        { P::sub, "subLevel" },
+    };
+
+    ParamValues values;
+    for (const auto& [slider, id] : sliderMap)
+        if (auto* param = apvts.getParameter (id))
+            values.emplace_back (id, param->convertFrom0to1 (patch.sliderNorm (slider)));
+
+    values.emplace_back ("dcoRange",  (float) patch.range);
+    values.emplace_back ("pulseOn",   patch.pulse ? 1.0f : 0.0f);
+    values.emplace_back ("sawOn",     patch.saw ? 1.0f : 0.0f);
+    values.emplace_back ("chorusI",   patch.chorus == 1 ? 1.0f : 0.0f);
+    values.emplace_back ("chorusII",  patch.chorus == 2 ? 1.0f : 0.0f);
+    values.emplace_back ("pwmSource", patch.pwmManual ? 1.0f : 0.0f);
+    values.emplace_back ("vcfEnvPol", patch.envNegative ? 1.0f : 0.0f);
+    values.emplace_back ("vcaMode",   patch.vcaGate ? 1.0f : 0.0f);
+    values.emplace_back ("hpf",       (float) patch.hpf);
+    return values;
 }
 
 //==============================================================================

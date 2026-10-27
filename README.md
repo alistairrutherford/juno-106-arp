@@ -50,9 +50,13 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
 - **Presets** — ten factory programs (Init, Lush Strings, Analog Brass, PWM Pad,
   Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise).
   A fresh instance shows only these. **Save** writes the current patch to a `.juno`
-  file you choose. **Load** opens a `.juno` file; the loaded patch becomes the
-  selection and is added to the dropdown for the rest of the session, so you can
-  flip back to it. prev/next step through the whole list.
+  file you choose and adds it to the dropdown. **Load** opens a `.juno` file or a
+  **Juno-106 SysEx dump (`.syx`)**; the loaded patch becomes the selection and is
+  added to the dropdown for the rest of the session, so you can flip back to it.
+  A `.syx` bank adds every patch it contains under a heading named after the file,
+  labelled Roland-style A11–B88. Each 106 slider maps to the same position on the
+  matching control here, and the plugin's extras (arp, drive, bend, velocity) reset
+  to defaults. prev/next step through the whole list.
 
 ## Tests
 

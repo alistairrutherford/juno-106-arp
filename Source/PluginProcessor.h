@@ -4,6 +4,7 @@
 #include "JunoVoice.h"
 #include "JunoChorus.h"
 #include "Arpeggiator.h"
+#include "JunoSysEx.h"
 
 //==============================================================================
 class Juno106AudioProcessor : public juce::AudioProcessor
@@ -47,6 +48,13 @@ public:
     // Ask the audio thread to clear the arpeggiator's held-note state on the
     // next block (e.g. after loading a preset). Thread-safe.
     void requestArpReset() noexcept { arpResetRequested.store (true); }
+
+    // A patch as (paramID, plain value) pairs. Applying one resets every
+    // parameter to its default first, so unlisted extras (arp, drive, ...)
+    // come back clean.
+    using ParamValues = std::vector<std::pair<juce::String, float>>;
+    void applyParameterValues (const ParamValues&);
+    ParamValues parameterValuesFor (const juno::Juno106Patch&);
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

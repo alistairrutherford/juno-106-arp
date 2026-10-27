@@ -115,13 +115,13 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
             userPresetActive = false;
             loadPreset (id - 1);
         }
-        else                                  // user preset file
+        else                                  // preset loaded/saved this session
         {
             const int j = id - kUserIdBase;
-            if (juce::isPositiveAndBelow (j, userFiles.size()))
+            if (juce::isPositiveAndBelow (j, (int) sessionPresets.size()))
             {
                 userPresetActive = true;
-                applyPresetFile (userFiles[j]);
+                processor.applyParameterValues (sessionPresets[(size_t) j].values);
             }
         }
     };
@@ -171,7 +171,6 @@ Juno106AudioProcessorEditor::~Juno106AudioProcessorEditor()
 void Juno106AudioProcessorEditor::loadPreset (int index)
 {
     processor.setCurrentProgram (index);
-    processor.requestArpReset();
     lastSeenProgram = index;
     presetBox.setSelectedId (index + 1, juce::dontSendNotification);
 }
@@ -190,28 +189,73 @@ void Juno106AudioProcessorEditor::refreshPresetList (int idToSelect)
     for (int i = 0; i < processor.getNumPrograms(); ++i)
         presetBox.addItem (processor.getProgramName (i), i + 1);
 
-    // Presets loaded from file this session: IDs kUserIdBase..
-    if (! userFiles.isEmpty())
-        presetBox.addSeparator();
+    // Presets loaded/saved this session (IDs kUserIdBase..), grouped under
+    // a heading per group in the order the groups first appeared.
+    juce::StringArray groups;
+    for (const auto& p : sessionPresets)
+        groups.addIfNotAlreadyThere (p.group);
 
-    for (int j = 0; j < userFiles.size(); ++j)
-        presetBox.addItem (userFiles[j].getFileNameWithoutExtension(), kUserIdBase + j);
+    for (const auto& group : groups)
+    {
+        presetBox.addSectionHeading (group);
+        for (size_t j = 0; j < sessionPresets.size(); ++j)
+            if (sessionPresets[j].group == group)
+                presetBox.addItem (sessionPresets[j].name, kUserIdBase + (int) j);
+    }
 
     if (idToSelect > 0)
         presetBox.setSelectedId (idToSelect, juce::dontSendNotification);
 }
 
-void Juno106AudioProcessorEditor::applyPresetFile (const juce::File& file)
+std::vector<Juno106AudioProcessorEditor::SessionPreset>
+Juno106AudioProcessorEditor::readPresetFile (const juce::File& file)
 {
-    if (! file.existsAsFile())
-        return;
+    std::vector<SessionPreset> entries;
+
+    if (file.hasFileExtension ("syx"))
+    {
+        juce::MemoryBlock data;
+        if (! file.loadFileAsData (data))
+            return entries;
+
+        for (const auto& patch : juno::parseJuno106SysEx (data.getData(), data.getSize()))
+            entries.push_back ({ file.getFileNameWithoutExtension(), patch.name(), file,
+                                 processor.parameterValuesFor (patch) });
+        return entries;
+    }
 
     if (auto xml = juce::XmlDocument::parse (file))
         if (xml->hasTagName (processor.apvts.state.getType()))
         {
-            processor.apvts.replaceState (juce::ValueTree::fromXml (*xml));
-            processor.requestArpReset();
+            Juno106AudioProcessor::ParamValues values;
+            for (auto* child : xml->getChildIterator())
+                if (child->hasAttribute ("id") && child->hasAttribute ("value"))
+                    values.emplace_back (child->getStringAttribute ("id"),
+                                         (float) child->getDoubleAttribute ("value"));
+
+            entries.push_back ({ "User", file.getFileNameWithoutExtension(), file, std::move (values) });
         }
+
+    return entries;
+}
+
+bool Juno106AudioProcessorEditor::addSessionPresets (const juce::File& source, std::vector<SessionPreset> entries)
+{
+    if (entries.empty())
+        return false;
+
+    sessionPresets.erase (std::remove_if (sessionPresets.begin(), sessionPresets.end(),
+                                          [&] (const SessionPreset& p) { return p.source == source; }),
+                          sessionPresets.end());
+
+    const int first = (int) sessionPresets.size();
+    for (auto& e : entries)
+        sessionPresets.push_back (std::move (e));
+
+    userPresetActive = true;
+    processor.applyParameterValues (sessionPresets[(size_t) first].values);
+    refreshPresetList (kUserIdBase + first);
+    return true;
 }
 
 void Juno106AudioProcessorEditor::savePreset()
@@ -234,11 +278,7 @@ void Juno106AudioProcessorEditor::savePreset()
                                       xml->writeTo (file);
 
                                   // Add the saved preset to the list and select it.
-                                  int j = userFiles.indexOf (file);
-                                  if (j < 0) { userFiles.add (file); j = userFiles.size() - 1; }
-
-                                  userPresetActive = true;
-                                  refreshPresetList (kUserIdBase + j);
+                                  addSessionPresets (file, readPresetFile (file));
                               });
 }
 
@@ -246,7 +286,7 @@ void Juno106AudioProcessorEditor::loadPresetFile()
 {
     auto dir = defaultPresetDir();
 
-    fileChooser = std::make_unique<juce::FileChooser> ("Load preset", dir, "*.juno");
+    fileChooser = std::make_unique<juce::FileChooser> ("Load preset or Juno-106 SysEx bank", dir, "*.juno;*.syx");
     fileChooser->launchAsync (juce::FileBrowserComponent::openMode
                               | juce::FileBrowserComponent::canSelectFiles,
                               [this] (const juce::FileChooser& fc)
@@ -255,14 +295,11 @@ void Juno106AudioProcessorEditor::loadPresetFile()
                                   if (! file.existsAsFile())
                                       return;
 
-                                  applyPresetFile (file);
-
-                                  // Add to this session's list (dedup) and select it.
-                                  int j = userFiles.indexOf (file);
-                                  if (j < 0) { userFiles.add (file); j = userFiles.size() - 1; }
-
-                                  userPresetActive = true;
-                                  refreshPresetList (kUserIdBase + j);
+                                  if (! addSessionPresets (file, readPresetFile (file)))
+                                      juce::AlertWindow::showMessageBoxAsync (
+                                          juce::MessageBoxIconType::WarningIcon, "Load preset",
+                                          "No Juno 106-ARP preset or Juno-106 SysEx patches were found in\n"
+                                              + file.getFileName());
                               });
 }
 

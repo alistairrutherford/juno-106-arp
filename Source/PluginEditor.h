@@ -48,9 +48,23 @@ private:
     void loadPreset (int index);
     void savePreset();
     void loadPresetFile();
-    void applyPresetFile (const juce::File&);
     void refreshPresetList (int idToSelect = -1);
     juce::File defaultPresetDir() const;
+
+    // A preset loaded or saved this session. A .juno file gives one entry; a
+    // Juno-106 .syx bank gives one per patch, shown under the file's name.
+    struct SessionPreset
+    {
+        juce::String group;       // section heading in the dropdown
+        juce::String name;
+        juce::File source;
+        Juno106AudioProcessor::ParamValues values;
+    };
+
+    // Replaces any entries from the same file, appends these, and selects the
+    // first one. Returns false if there was nothing to add.
+    bool addSessionPresets (const juce::File& source, std::vector<SessionPreset> entries);
+    std::vector<SessionPreset> readPresetFile (const juce::File&);
 
     Juno106AudioProcessor& processor;
     JunoLookAndFeel lookAndFeel;
@@ -102,7 +116,7 @@ private:
     juce::TextButton prevButton, nextButton, saveButton, loadButton;
     ArpDisplayKeyboard keyboard;
     std::unique_ptr<juce::FileChooser> fileChooser;
-    juce::Array<juce::File> userFiles;   // loaded this session; combo IDs 1001+
+    std::vector<SessionPreset> sessionPresets;   // combo IDs 1001+
     bool userPresetActive = false;
     int lastSeenProgram = -1;
 

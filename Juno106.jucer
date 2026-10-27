@@ -20,6 +20,7 @@
       <FILE id="fVoi01" name="JunoVoice.h" compile="0" resource="0" file="Source/JunoVoice.h"/>
       <FILE id="fCho01" name="JunoChorus.h" compile="0" resource="0" file="Source/JunoChorus.h"/>
       <FILE id="fArp01" name="Arpeggiator.h" compile="0" resource="0" file="Source/Arpeggiator.h"/>
+      <FILE id="fSyx01" name="JunoSysEx.h" compile="0" resource="0" file="Source/JunoSysEx.h"/>
       <FILE id="fLnf01" name="JunoLookAndFeel.h" compile="0" resource="0"
             file="Source/JunoLookAndFeel.h"/>
     </GROUP>
@@ -46,8 +47,8 @@
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="Juno106" macOSDeploymentTarget="11.0" osxArchitecture="Standard"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="Juno106" macOSDeploymentTarget="11.0" osxArchitecture="Standard"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="Juno106" macOSDeploymentTarget="12.0" osxArchitecture="Standard"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Juno106" macOSDeploymentTarget="12.0" osxArchitecture="Standard"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="/Users/alistairrutherford/Development/JUCE/modules"/>
