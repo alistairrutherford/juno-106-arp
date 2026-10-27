@@ -12,7 +12,7 @@ namespace juno
 // key follow +3/-2 octaves across the C2..C7 keyboard (1 oct/oct about C4).
 namespace calibration
 {
-    constexpr int   version       = 2;      // stored with saved state; 1 = pre-2026-10 ranges
+    constexpr int   version       = 3;      // stored with saved state; see migrateLegacyValue
     constexpr float cutoffMinHz   = 5.0f;
     constexpr float cutoffDecades = 4.0f;   // 5 Hz -> 50 kHz
     constexpr float envOctaves    = 14.0f;
@@ -37,6 +37,64 @@ namespace calibration
     inline float migrateVcfEnv  (float legacy) noexcept
     {
         return juce::jlimit (0.0f, 1.0f, legacy * legacyEnvOctaves / envOctaves);
+    }
+
+    //--------------------------------------------------------------------------
+    // Envelope times. Roland's spec gives attack 1.5 ms..3 s (time to peak) and
+    // decay/release 1.5 ms..12 s (exponential time constants). Between those
+    // ends the slider follows the 106 firmware's curves, as analysed for the
+    // KR-106 emulator: attack roughly proportional to the slider up to half
+    // travel then steepening; decay/release log-spaced with a fast rise around
+    // the first third. Points are (slider 0..1, seconds); times between points
+    // are interpolated logarithmically.
+    struct Knot { float slider, seconds; };
+
+    inline constexpr Knot attackKnots[] = {
+        { 0.0f, 0.0015f },         { 1.0f / 127, 0.0100f },  { 2.0f / 127, 0.0184f },
+        { 4.0f / 127, 0.0354f },   { 8.0f / 127, 0.0692f },  { 16.0f / 127, 0.137f },
+        { 32.0f / 127, 0.272f },   { 64.0f / 127, 0.543f },  { 96.0f / 127, 1.36f },
+        { 1.0f, 3.0f } };
+
+    inline constexpr Knot decayReleaseKnots[] = {
+        { 0.0f, 0.0015f },         { 4.0f / 127, 0.00736f }, { 15.0f / 127, 0.0656f },
+        { 32.0f / 127, 0.133f },   { 43.0f / 127, 0.540f },  { 64.0f / 127, 1.065f },
+        { 96.0f / 127, 2.235f },   { 1.0f, 12.0f } };
+
+    template <size_t N>
+    inline float secondsAt (const Knot (&k)[N], float slider) noexcept
+    {
+        slider = juce::jlimit (0.0f, 1.0f, slider);
+        for (size_t i = 1; i < N; ++i)
+            if (slider <= k[i].slider)
+            {
+                const float f = (slider - k[i - 1].slider) / (k[i].slider - k[i - 1].slider);
+                return k[i - 1].seconds * std::pow (k[i].seconds / k[i - 1].seconds, f);
+            }
+        return k[N - 1].seconds;
+    }
+
+    template <size_t N>
+    inline float sliderAt (const Knot (&k)[N], float seconds) noexcept
+    {
+        seconds = juce::jlimit (k[0].seconds, k[N - 1].seconds, seconds);
+        for (size_t i = 1; i < N; ++i)
+            if (seconds <= k[i].seconds)
+            {
+                const float f = std::log (seconds / k[i - 1].seconds) / std::log (k[i].seconds / k[i - 1].seconds);
+                return k[i - 1].slider + f * (k[i].slider - k[i - 1].slider);
+            }
+        return 1.0f;
+    }
+
+    // Our attack curve heads for 1.35, so it reaches full level after this
+    // many time constants.
+    inline float attackPeakFactor() noexcept { return std::log (1.35f / 0.35f); }
+
+    // Before version 3 the attack parameter was that time constant; now it is
+    // the time to reach full level.
+    inline float migrateAttack (float legacy) noexcept
+    {
+        return juce::jlimit (attackKnots[0].seconds, 3.0f, legacy * attackPeakFactor());
     }
 }
 
@@ -127,9 +185,11 @@ struct ExpAdsr
 {
     void prepare (double sampleRate) noexcept { fs = (float) sampleRate; }
 
+    // attackS is the time to reach full level; decayS and releaseS are
+    // exponential time constants.
     void setTimes (float attackS, float decayS, float sustainLvl, float releaseS) noexcept
     {
-        aCoef = coefFor (attackS);
+        aCoef = coefFor (attackS / calibration::attackPeakFactor());
         dCoef = coefFor (decayS);
         rCoef = coefFor (releaseS);
         sustain = sustainLvl;

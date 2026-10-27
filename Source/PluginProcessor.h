@@ -63,7 +63,7 @@ public:
     // sounds as it did when saved.
     std::unique_ptr<juce::XmlElement> createStateXml();
     static void migrateStateXml (juce::XmlElement&);
-    static float migrateLegacyValue (const juce::String& paramID, float value);
+    static float migrateLegacyValue (const juce::String& paramID, float value, int fromVersion);
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();

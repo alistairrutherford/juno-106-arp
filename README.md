@@ -77,10 +77,12 @@ Rise…) start ringing at note-on, as the hardware filter is already running.
 The VCF is calibrated to Roland's Juno-106 Service Notes: cutoff 5 Hz–50 kHz across
 the FREQ slider, envelope modulation up to 14 octaves, keyboard follow +3/−2 octaves
 over the C2–C7 keyboard, and HPF positions of +10 dB bass boost below 150 Hz, flat,
-236 Hz and 754 Hz. Saved state carries a `calibration` version; presets and projects
-saved before this calibration are converted on load so they sound as they did.
-Envelope times are still approximations, so very short noise bursts such as Hand
-Claps come out quieter than the hardware.
+236 Hz and 754 Hz. Envelope times use Roland's spec ranges — attack 1.5 ms–3 s to
+full level, decay and release 1.5 ms–12 s time constants — with the fader travel
+following the 106 firmware's slider curves (as analysed for the KR-106 emulator),
+so imported patches get the hardware's timing. Saved state carries a `calibration`
+version; presets and projects saved before a recalibration are converted on load so
+they sound as they did.
 
 ## Tests
 

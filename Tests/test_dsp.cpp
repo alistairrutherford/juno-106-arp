@@ -140,6 +140,46 @@ int main()
                "Migrated VCF env gives the same octave sweep as before");
     }
 
+    // --- Envelope time calibration (Roland spec endpoints, firmware-shaped curve) ---
+    {
+        namespace cal = juno::calibration;
+        check (std::abs (cal::secondsAt (cal::attackKnots, 0.0f) - 0.0015f) < 1.0e-6f
+                   && std::abs (cal::secondsAt (cal::attackKnots, 1.0f) - 3.0f) < 1.0e-5f,      "Attack spans 1.5 ms..3 s");
+        check (std::abs (cal::secondsAt (cal::decayReleaseKnots, 0.0f) - 0.0015f) < 1.0e-6f
+                   && std::abs (cal::secondsAt (cal::decayReleaseKnots, 1.0f) - 12.0f) < 1.0e-4f, "Decay/release span 1.5 ms..12 s");
+
+        bool rising = true, roundTrip = true;
+        for (int i = 1; i <= 127; ++i)
+        {
+            const float sl = i / 127.0f, prev = (i - 1) / 127.0f;
+            rising = rising && cal::secondsAt (cal::attackKnots, sl) > cal::secondsAt (cal::attackKnots, prev)
+                            && cal::secondsAt (cal::decayReleaseKnots, sl) > cal::secondsAt (cal::decayReleaseKnots, prev);
+            roundTrip = roundTrip
+                && std::abs (cal::sliderAt (cal::attackKnots, cal::secondsAt (cal::attackKnots, sl)) - sl) < 1.0e-4f
+                && std::abs (cal::sliderAt (cal::decayReleaseKnots, cal::secondsAt (cal::decayReleaseKnots, sl)) - sl) < 1.0e-4f;
+        }
+        check (rising, "Envelope curves rise at every one of the 128 slider steps");
+        check (roundTrip, "Slider <-> seconds round trip for all 128 steps");
+        check (std::abs (cal::secondsAt (cal::attackKnots, 64.0f / 127) - 0.543f) < 1.0e-3f, "Attack at half travel ~0.54 s (firmware curve)");
+
+        // The envelope itself honours those times.
+        auto samplesToPeak = [sr] (float attackSeconds)
+        {
+            juno::ExpAdsr e; e.prepare (sr); e.setTimes (attackSeconds, 1.0f, 1.0f, 1.0f); e.noteOn();
+            int n = 0;
+            while (e.next() < 0.999f && n < (int) (10 * sr)) ++n;
+            return (float) n / (float) sr;
+        };
+        check (std::abs (samplesToPeak (0.5f) / 0.5f - 1.0f) < 0.02f, "Attack setting 0.5 s reaches full level at 0.5 s");
+        check (std::abs (samplesToPeak (cal::migrateAttack (0.2f)) / (0.2f * 1.3499f) - 1.0f) < 0.02f,
+               "Migrated attack keeps the old time to full level");
+
+        juno::ExpAdsr d; d.prepare (sr); d.setTimes (0.0015f, 0.25f, 0.0f, 1.0f); d.noteOn();
+        while (d.next() < 0.999f) {}
+        for (int i = 0; i < (int) (0.25 * sr); ++i) d.next();
+        check (std::abs (d.next() - std::exp (-1.0f)) < 0.03f, "Decay setting is its exponential time constant");
+    }
+
     // --- HPF positions: gain at a frequency, in dB ---
     {
         auto gainDb = [sr] (int pos, float freq)

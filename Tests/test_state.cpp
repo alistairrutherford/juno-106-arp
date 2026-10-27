@@ -128,23 +128,40 @@ int main()
         auto hzOf = [&] { return cal::cutoffHz (rawVal (proc, "vcfFreq")); };
         auto near = [] (float a, float b) { return std::abs (a / b - 1.0f) < 2.0e-3f; };
 
+        const float peakFactor = cal::attackPeakFactor();
+
         proc.setCurrentProgram (0);
         check (near (hzOf(), cal::legacyCutoffHz (0.7f)), "Recalibration: Init cutoff unchanged");
+        check (near (rawVal (proc, "attack"), 0.005f * peakFactor), "Recalibration: Init attack time unchanged");
 
         proc.setCurrentProgram (1);   // Lush Strings, voiced as vcfFreq 0.55 / vcfEnv 0.2
         check (near (hzOf(), cal::legacyCutoffHz (0.55f))
                    && std::abs (rawVal (proc, "vcfEnv") * cal::envOctaves - 0.2f * cal::legacyEnvOctaves) < 1.0e-3f,
                "Recalibration: plugin's own presets keep their cutoff and env sweep");
+        check (near (rawVal (proc, "attack"), 0.35f * peakFactor) && near (rawVal (proc, "decay"), 1.2f),
+               "Recalibration: plugin's own presets keep their attack and decay times");
 
         // A project saved before the recalibration (no calibration attribute).
         auto old = proc.createStateXml();
         old->removeAttribute ("calibration");
         for (auto* c : old->getChildIterator())
+        {
             if (c->getStringAttribute ("id") == "vcfFreq") c->setAttribute ("value", 0.5);
+            if (c->getStringAttribute ("id") == "attack")  c->setAttribute ("value", 0.1);
+        }
         juce::MemoryBlock block;
         juce::AudioProcessor::copyXmlToBinary (*old, block);
         proc.setStateInformation (block.getData(), (int) block.getSize());
-        check (near (hzOf(), cal::legacyCutoffHz (0.5f)), "Recalibration: old saved state is converted on load");
+        check (near (hzOf(), cal::legacyCutoffHz (0.5f)) && near (rawVal (proc, "attack"), 0.1f * peakFactor),
+               "Recalibration: version-1 state converts filter and attack on load");
+
+        // Saved between the two recalibrations: only attack needs converting.
+        old->setAttribute ("calibration", 2);
+        juce::MemoryBlock block2;
+        juce::AudioProcessor::copyXmlToBinary (*old, block2);
+        proc.setStateInformation (block2.getData(), (int) block2.getSize());
+        check (std::abs (rawVal (proc, "vcfFreq") - 0.5f) < 1.0e-5f && near (rawVal (proc, "attack"), 0.1f * peakFactor),
+               "Recalibration: version-2 state converts attack only");
 
         // Current state round-trips without being converted twice.
         const float before = rawVal (proc, "vcfFreq");
@@ -157,6 +174,7 @@ int main()
 
     // Juno-106 SysEx patch -> processor parameters -> sound.
     {
+        auto near = [] (float a, float b) { return std::abs (a / b - 1.0f) < 2.0e-3f; };
         const juce::uint8 msg[] = {
             0xF0, 0x41, 0x30, 0x00, 0x05,                       // patch 5 = "A16"
             40, 0, 0, 0, 0, 100, 30, 0, 0, 64, 127, 0, 0, 127, 20, 64,   // 16 sliders
@@ -184,6 +202,9 @@ int main()
         check (rawVal (proc, "chorusII") > 0.5f && rawVal (proc, "chorusI") < 0.5f, "SysEx chorus II");
         check ((int) rawVal (proc, "hpf") == 2 && (int) rawVal (proc, "dcoRange") == 1, "SysEx HPF pos 2, range 8'");
         check (rawVal (proc, "arpOn") < 0.5f, "SysEx import resets plugin extras (arp off)");
+        check (std::abs (rawVal (proc, "attack") - 0.0015f) < 1.0e-5f && near (rawVal (proc, "release"),
+                   juno::calibration::secondsAt (juno::calibration::decayReleaseKnots, 20.0f / 127)),
+               "SysEx envelope sliders land on the 106 time curves");
         check (renderRms (proc) > 1.0e-3, "Imported Juno-106 patch produces sound");
     }
 

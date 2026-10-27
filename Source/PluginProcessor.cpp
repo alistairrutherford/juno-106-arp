@@ -107,14 +107,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout Juno106AudioProcessor::creat
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfLfo", 1 },  "VCF LFO",  Range (0.0f, 1.0f), 0.0f));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "vcfKybd", 1 }, "VCF Kybd", Range (0.0f, 1.0f), 0.5f));
 
-    // ENV
+    // ENV: fader travel follows the 106's slider-to-time curves. Attack is the
+    // time to reach full level; decay and release are time constants.
+    namespace cal = juno::calibration;
+    const auto attackRange = Range (cal::attackKnots[0].seconds, 3.0f,
+        [] (float, float, float n) { return cal::secondsAt (cal::attackKnots, n); },
+        [] (float, float, float v) { return cal::sliderAt (cal::attackKnots, v); });
+    const auto decayReleaseRange = Range (cal::decayReleaseKnots[0].seconds, 12.0f,
+        [] (float, float, float n) { return cal::secondsAt (cal::decayReleaseKnots, n); },
+        [] (float, float, float v) { return cal::sliderAt (cal::decayReleaseKnots, v); });
+
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "attack", 1 },  "Attack",
-                                              Range (0.001f, 3.0f, 0.0f, 0.35f), 0.005f));
+                                              attackRange, cal::migrateAttack (0.005f)));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "decay", 1 },   "Decay",
-                                              Range (0.002f, 10.0f, 0.0f, 0.3f), 0.3f));
+                                              decayReleaseRange, 0.3f));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "sustain", 1 }, "Sustain", Range (0.0f, 1.0f), 0.8f));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { "release", 1 }, "Release",
-                                              Range (0.002f, 12.0f, 0.0f, 0.3f), 0.2f));
+                                              decayReleaseRange, 0.2f));
 
     // VCA
     layout.add (std::make_unique<ChoiceParam> (juce::ParameterID { "vcaMode", 1 }, "VCA Mode",
@@ -340,10 +349,10 @@ void Juno106AudioProcessor::setCurrentProgram (int index)
     {
         currentProgram = index;
 
-        // The table above is voiced in the version-1 filter ranges.
+        // The table above is voiced in the version-1 ranges.
         ParamValues values;
         for (const auto& [paramID, value] : presets[(size_t) index].values)
-            values.emplace_back (paramID, migrateLegacyValue (paramID, value));
+            values.emplace_back (paramID, migrateLegacyValue (paramID, value, 1));
 
         applyParameterValues (values);
     }
@@ -412,22 +421,32 @@ std::unique_ptr<juce::XmlElement> Juno106AudioProcessor::createStateXml()
     return xml;
 }
 
-float Juno106AudioProcessor::migrateLegacyValue (const juce::String& paramID, float value)
+// Calibration versions: 1 = original ranges; 2 = VCF recalibrated to the
+// Service Notes; 3 = attack stored as time to peak (was a time constant).
+float Juno106AudioProcessor::migrateLegacyValue (const juce::String& paramID, float value, int fromVersion)
 {
-    if (paramID == "vcfFreq") return juno::calibration::migrateVcfFreq (value);
-    if (paramID == "vcfEnv")  return juno::calibration::migrateVcfEnv (value);
+    if (fromVersion < 2)
+    {
+        if (paramID == "vcfFreq") value = juno::calibration::migrateVcfFreq (value);
+        if (paramID == "vcfEnv")  value = juno::calibration::migrateVcfEnv (value);
+    }
+    if (fromVersion < 3 && paramID == "attack")
+        value = juno::calibration::migrateAttack (value);
+
     return value;
 }
 
 void Juno106AudioProcessor::migrateStateXml (juce::XmlElement& xml)
 {
-    if (xml.getIntAttribute ("calibration", 1) >= juno::calibration::version)
+    const int fromVersion = xml.getIntAttribute ("calibration", 1);
+    if (fromVersion >= juno::calibration::version)
         return;
 
     for (auto* child : xml.getChildIterator())
         if (child->hasAttribute ("id") && child->hasAttribute ("value"))
             child->setAttribute ("value", (double) migrateLegacyValue (child->getStringAttribute ("id"),
-                                                                       (float) child->getDoubleAttribute ("value")));
+                                                                       (float) child->getDoubleAttribute ("value"),
+                                                                       fromVersion));
 
     xml.setAttribute ("calibration", juno::calibration::version);
 }
