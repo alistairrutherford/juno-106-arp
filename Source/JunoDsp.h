@@ -168,6 +168,14 @@ struct LadderZdf
 
     void reset() noexcept { z[0] = z[1] = z[2] = z[3] = 0.0f; }
 
+    // Feedback above 4 makes the ladder self-oscillate; ours reaches 4.6 at max.
+    static constexpr float maxFeedback = 4.6f;
+    static bool selfOscillates (float res) noexcept { return maxFeedback * res > 4.0f; }
+
+    // Charges the stages so a self-oscillating filter is ringing from the next
+    // sample, as if it had been running all along.
+    void kick (float amount) noexcept { for (auto& s : z) s += amount; }
+
     // cutoff in Hz, res in [0, 1], drive in [0, 1].
     // Near res == 1 the feedback exceeds the k == 4 stability point so the
     // filter self-oscillates, like the 80017a chip driven hard.
@@ -178,7 +186,7 @@ struct LadderZdf
         const float g  = std::tan (juce::MathConstants<float>::pi * cutoff / fs);
         const float G  = g / (1.0f + g);
         const float d  = 1.0f / (1.0f + g);
-        const float k  = 4.6f * res;              // >4 at max => self-oscillation
+        const float k  = maxFeedback * res;
         const float G2 = G * G;
         const float G4 = G2 * G2;
 

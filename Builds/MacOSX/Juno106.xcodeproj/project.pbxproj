@@ -103,6 +103,7 @@
 		43A76918E4338F82828C95A5 /* IOKit.framework */ /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		477310EE81B0AAB25777DE3B /* WebKit.framework */ /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		51ECB8289DD9D4D64FCA8BF3 /* JunoSysEx.h */ /* JunoSysEx.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = JunoSysEx.h; path = ../../Source/JunoSysEx.h; sourceTree = SOURCE_ROOT; };
+		569AFB4E8784E1050270127A /* JunoFactoryBank.h */ /* JunoFactoryBank.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = JunoFactoryBank.h; path = ../../Source/JunoFactoryBank.h; sourceTree = SOURCE_ROOT; };
 		58C0F00410F433CDF14E6230 /* juce_audio_processors */ /* juce_audio_processors */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_audio_processors; path = /Users/alistairrutherford/Development/JUCE/modules/juce_audio_processors; sourceTree = "<absolute>"; };
 		598E6DCFC50EA3A23478A002 /* QuartzCore.framework */ /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		618E592C4F1FE8340EF5CA23 /* juce_core */ /* juce_core */ = {isa = PBXFileReference; lastKnownFileType = folder; name = juce_core; path = /Users/alistairrutherford/Development/JUCE/modules/juce_core; sourceTree = "<absolute>"; };
@@ -340,6 +341,7 @@
 				8386EEDABADC97AE45668B4B,
 				A38A280C4DD58152E2400832,
 				51ECB8289DD9D4D64FCA8BF3,
+				569AFB4E8784E1050270127A,
 				25B292B194595A3DFA1B0549,
 			);
 			name = Source;

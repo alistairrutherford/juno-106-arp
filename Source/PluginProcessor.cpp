@@ -304,31 +304,53 @@ namespace
     }
 }
 
+// Programs: the plugin's own presets first (so Init stays program 0 and saved
+// projects keep their program numbers), then the 128 Juno-106 factory patches.
 int Juno106AudioProcessor::getNumPrograms()
 {
-    return (int) getFactoryPresets().size();
+    return (int) getFactoryPresets().size() + juno::numFactoryPatches;
 }
 
 const juce::String Juno106AudioProcessor::getProgramName (int index)
 {
     const auto& presets = getFactoryPresets();
-    return juce::isPositiveAndBelow (index, (int) presets.size()) ? presets[(size_t) index].name
-                                                                  : juce::String();
+    const int numOwn = (int) presets.size();
+
+    if (juce::isPositiveAndBelow (index, numOwn))
+        return presets[(size_t) index].name;
+
+    if (juce::isPositiveAndBelow (index - numOwn, juno::numFactoryPatches))
+        return juno::factoryBank[index - numOwn].name;
+
+    return {};
+}
+
+juce::String Juno106AudioProcessor::getProgramCategory (int index)
+{
+    return index < (int) getFactoryPresets().size() ? "Juno 106-ARP" : "Juno-106 Factory";
 }
 
 void Juno106AudioProcessor::setCurrentProgram (int index)
 {
     const auto& presets = getFactoryPresets();
-    if (! juce::isPositiveAndBelow (index, (int) presets.size()))
-        return;
+    const int numOwn = (int) presets.size();
 
-    currentProgram = index;
+    if (juce::isPositiveAndBelow (index, numOwn))
+    {
+        currentProgram = index;
 
-    ParamValues values;
-    for (const auto& [paramID, value] : presets[(size_t) index].values)
-        values.emplace_back (paramID, value);
+        ParamValues values;
+        for (const auto& [paramID, value] : presets[(size_t) index].values)
+            values.emplace_back (paramID, value);
 
-    applyParameterValues (values);
+        applyParameterValues (values);
+    }
+    else if (juce::isPositiveAndBelow (index - numOwn, juno::numFactoryPatches))
+    {
+        currentProgram = index;
+        const auto& p = juno::factoryBank[index - numOwn];
+        applyParameterValues (parameterValuesFor (juno::Juno106Patch::decode (index - numOwn, p.data)));
+    }
 }
 
 void Juno106AudioProcessor::applyParameterValues (const ParamValues& values)
@@ -353,15 +375,19 @@ Juno106AudioProcessor::ParamValues Juno106AudioProcessor::parameterValuesFor (co
         { P::lfoRate, "lfoRate" },   { P::lfoDelay, "lfoDelay" }, { P::dcoLfo, "dcoLfo" },
         { P::dcoPwm, "dcoPwm" },     { P::noise, "noiseLevel" },  { P::vcfFreq, "vcfFreq" },
         { P::vcfRes, "vcfRes" },     { P::vcfEnv, "vcfEnv" },     { P::vcfLfo, "vcfLfo" },
-        { P::vcfKybd, "vcfKybd" },   { P::vcaLevel, "vcaLevel" }, { P::attack, "attack" },
-        { P::decay, "decay" },       { P::sustain, "sustain" },   { P::release, "release" },
-        { P::sub, "subLevel" },
+        { P::vcfKybd, "vcfKybd" },   { P::attack, "attack" },     { P::decay, "decay" },
+        { P::sustain, "sustain" },   { P::release, "release" },   { P::sub, "subLevel" },
     };
 
     ParamValues values;
     for (const auto& [slider, id] : sliderMap)
         if (auto* param = apvts.getParameter (id))
             values.emplace_back (id, param->convertFrom0to1 (patch.sliderNorm (slider)));
+
+    // The 106's VCA LEVEL is an output trim, not a mute: factory patches such
+    // as Orchestral Pad are stored with it at 0 and still play. Map the slider
+    // onto a 14 dB range ending at our full level.
+    values.emplace_back ("vcaLevel", std::pow (10.0f, (patch.sliderNorm (P::vcaLevel) - 1.0f) * 14.0f / 20.0f));
 
     values.emplace_back ("dcoRange",  (float) patch.range);
     values.emplace_back ("pulseOn",   patch.pulse ? 1.0f : 0.0f);

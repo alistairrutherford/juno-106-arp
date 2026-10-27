@@ -185,9 +185,18 @@ void Juno106AudioProcessorEditor::refreshPresetList (int idToSelect)
 {
     presetBox.clear (juce::dontSendNotification);
 
-    // Factory presets: IDs 1..N. Fresh instances start with only these.
+    // Factory presets: IDs 1..N, under a heading per category. Fresh
+    // instances start with only these.
+    juce::String category;
     for (int i = 0; i < processor.getNumPrograms(); ++i)
+    {
+        if (processor.getProgramCategory (i) != category)
+        {
+            category = processor.getProgramCategory (i);
+            presetBox.addSectionHeading (category);
+        }
         presetBox.addItem (processor.getProgramName (i), i + 1);
+    }
 
     // Presets loaded/saved this session (IDs kUserIdBase..), grouped under
     // a heading per group in the order the groups first appeared.
@@ -385,7 +394,7 @@ void Juno106AudioProcessorEditor::resized()
     placeRight (loadButton, 52);
     placeRight (saveButton, 52);
     placeRight (nextButton, 26);
-    placeRight (presetBox, 190);
+    placeRight (presetBox, 240);
     placeRight (prevButton, 26);
 
     sections.clear();

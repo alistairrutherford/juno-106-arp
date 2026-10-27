@@ -187,6 +187,11 @@ public:
             smLevel   = levelTgt;
             smDrive   = driveTgt;
             primed    = true;
+
+            // A self-oscillating 106 filter is already ringing when a key goes
+            // down. Ours is reset per note, so kick it to start ringing at once.
+            if (juno::LadderZdf::selfOscillates (res))
+                filter.kick (0.5f);
         }
 
         auto* left  = output.getWritePointer (0, startSample);
@@ -237,6 +242,10 @@ public:
             const float octMod = envPol * envAmt * envVal * 6.0f + lfoFiltAmt * lfo * 1.5f
                                + benderOct + velOct + atOct;
             const float cutoff = smVcfBase * keyFollow * voiceCutoffTrim * std::pow (2.0f, octMod);
+
+            // Stand-in for the 106's circuit noise: inaudible on its own, but it
+            // lets oscillator-less, full-resonance patches start self-oscillating.
+            x += (exciteRng.nextFloat() - 0.5f) * 2.0e-4f;
             x = filter.process (x, cutoff, smRes, smDrive);
 
             // VCA: envelope or gate, scaled by velocity depth.
@@ -274,6 +283,7 @@ private:
 
     // Per-voice analog variance.
     float voiceDetune = 1.0f, voiceCutoffTrim = 1.0f;
+    juce::Random exciteRng;
 
     // Smoothed parameter state.
     float smoothCoef = 1.0f;

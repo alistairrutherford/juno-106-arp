@@ -47,9 +47,11 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   adjustable gate length, and Hold/latch (releasing Hold drops the latched notes).
   It locks to the host transport grid when playing and free-runs at the host tempo
   when stopped. Controllers such as the mod wheel pass straight through.
-- **Presets** — ten factory programs (Init, Lush Strings, Analog Brass, PWM Pad,
-  Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead, Wind Noise).
-  A fresh instance shows only these. **Save** writes the current patch to a `.juno`
+- **Presets** — ten of the plugin's own programs (Init, Lush Strings, Analog Brass,
+  PWM Pad, Deep Sub Bass, Resonant Sweep, Pipe Organ, Vibrato Keys, Porta Lead,
+  Wind Noise), followed by the **128 original Juno-106 factory patches** (Accordion …
+  Xylophone), each under its own heading in the preset list and exposed to the host
+  as programs. A fresh instance shows only these. **Save** writes the current patch to a `.juno`
   file you choose and adds it to the dropdown. **Load** opens a `.juno` file or a
   **Juno-106 SysEx dump (`.syx`)**; the loaded patch becomes the selection and is
   added to the dropdown for the rest of the session, so you can flip back to it.
@@ -57,6 +59,22 @@ then, global:    HPF (4-position switch) --> BBD chorus (I / II / I+II) --> ster
   labelled Roland-style A11–B88. Each 106 slider maps to the same position on the
   matching control here, and the plugin's extras (arp, drive, bend, velocity) reset
   to defaults. prev/next step through the whole list.
+
+### Factory bank
+
+`Source/JunoFactoryBank.h` is generated from a Juno-106 librarian `.106` file
+(a Java-serialized library of named patches, each holding the standard 18-byte
+106 patch data):
+
+```sh
+python3 -I Tools/import_106_library.py Juno-106-Factory.106 Source/JunoFactoryBank.h
+```
+
+Notes on fidelity: the 106's VCA LEVEL is a trim, so slider 0 maps to −14 dB rather
+than silence; patches that play the self-oscillating filter (Tomita, Toy Rhodes, FX
+Rise…) start ringing at note-on, as the hardware filter is already running. Cutoff,
+envelope and keyboard-tracking ranges are approximations, so a few patches built on
+extreme settings (Hand Claps, Piccolo) come out quieter than the rest of the bank.
 
 ## Tests
 

@@ -5,6 +5,7 @@
 #include "JunoChorus.h"
 #include "Arpeggiator.h"
 #include "JunoSysEx.h"
+#include "JunoFactoryBank.h"
 
 //==============================================================================
 class Juno106AudioProcessor : public juce::AudioProcessor
@@ -30,6 +31,7 @@ public:
     int getCurrentProgram() override                       { return currentProgram; }
     void setCurrentProgram (int index) override;
     const juce::String getProgramName (int index) override;
+    juce::String getProgramCategory (int index);   // section heading for the preset list
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;

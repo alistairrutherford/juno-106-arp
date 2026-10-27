@@ -139,12 +139,70 @@ int main()
 
         check (std::abs (rawVal (proc, "vcfFreq") - 100.0f / 127.0f) < 1.0e-3f, "SysEx VCF freq slider maps to same position");
         check (std::abs (rawVal (proc, "vcaLevel") - 1.0f) < 1.0e-3f,          "SysEx VCA level 127 -> 1.0");
+
+        // VCA slider at 0 is a -14 dB trim, not silence.
+        auto quiet = patches[0];
+        quiet.slider[juno::Juno106Patch::vcaLevel] = 0;
+        proc.applyParameterValues (proc.parameterValuesFor (quiet));
+        check (std::abs (rawVal (proc, "vcaLevel") - std::pow (10.0f, -0.7f)) < 1.0e-3f, "SysEx VCA level 0 -> -14 dB trim, not mute");
+        proc.applyParameterValues (proc.parameterValuesFor (patches[0]));
         check (std::abs (rawVal (proc, "subLevel") - 64.0f / 127.0f) < 1.0e-3f, "SysEx sub slider maps");
         check (rawVal (proc, "sawOn") > 0.5f && rawVal (proc, "pulseOn") < 0.5f, "SysEx saw on, pulse off");
         check (rawVal (proc, "chorusII") > 0.5f && rawVal (proc, "chorusI") < 0.5f, "SysEx chorus II");
         check ((int) rawVal (proc, "hpf") == 2 && (int) rawVal (proc, "dcoRange") == 1, "SysEx HPF pos 2, range 8'");
         check (rawVal (proc, "arpOn") < 0.5f, "SysEx import resets plugin extras (arp off)");
         check (renderRms (proc) > 1.0e-3, "Imported Juno-106 patch produces sound");
+    }
+
+    // Juno-106 factory bank: 128 programs after the plugin's own presets, and
+    // every one must make sound (fresh processor each, so long releases from
+    // one patch can't mask a silent next one).
+    {
+        const int numOwn = proc.getNumPrograms() - juno::numFactoryPatches;
+        check (juno::numFactoryPatches == 128, "Factory bank holds 128 patches");
+        check (proc.getProgramName (0) == "Init", "Program 0 is still Init");
+        check (proc.getProgramName (numOwn) == "Accordion"
+                   && proc.getProgramName (numOwn + 127) == "Xylophone", "Factory patches follow the plugin's own presets");
+        check (proc.getProgramCategory (numOwn) == "Juno-106 Factory"
+                   && proc.getProgramCategory (0) == "Juno 106-ARP", "Program categories for the preset list headings");
+
+        juce::StringArray silent, broken;
+        std::vector<std::pair<float, juce::String>> peaks;
+        for (int f = 0; f < juno::numFactoryPatches; ++f)
+        {
+            Juno106AudioProcessor p;
+            p.setRateAndBufferSizeDetails (48000.0, 512);
+            p.prepareToPlay (48000.0, 512);
+            p.setCurrentProgram (numOwn + f);
+
+            juce::MidiBuffer on; on.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
+            juce::AudioBuffer<float> buf (2, 512); juce::MidiBuffer empty;
+            float peak = 0.0f; bool bad = false;
+            for (int b = 0; b < 188; ++b)   // ~2 s held
+            {
+                buf.clear();
+                p.processBlock (buf, b == 0 ? on : empty);
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float s = buf.getSample (0, i);
+                    if (! std::isfinite (s)) bad = true;
+                    peak = juce::jmax (peak, std::abs (s));
+                }
+            }
+            peaks.emplace_back (peak, p.getProgramName (numOwn + f));
+            if (bad)             broken.add (p.getProgramName (numOwn + f));
+            else if (peak < 1.0e-3f) silent.add (p.getProgramName (numOwn + f) + " (peak " + juce::String (peak, 5) + ")");
+        }
+        std::sort (peaks.begin(), peaks.end());
+        std::cout << "        bank peak level: median " << juce::Decibels::gainToDecibels (peaks[peaks.size() / 2].first)
+                  << " dB; quietest:";
+        for (size_t q = 0; q < 5; ++q)
+            std::cout << " " << peaks[q].second << " (" << juce::String (juce::Decibels::gainToDecibels (peaks[q].first), 1) << " dB)";
+        std::cout << "\n";
+        if (! silent.isEmpty()) std::cout << "        silent: " << silent.joinIntoString (", ") << "\n";
+        if (! broken.isEmpty()) std::cout << "        NaN/Inf: " << broken.joinIntoString (", ") << "\n";
+        check (broken.isEmpty(), "No factory patch produces NaN/Inf");
+        check (silent.isEmpty(), "Every factory patch produces sound (held C4, peak > -60 dBFS)");
     }
 
     // Fuzz: no random preset may ever make the plugin emit NaN/Inf (a host such
