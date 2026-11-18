@@ -295,6 +295,37 @@ int main()
 
     file.deleteFile();
 
+    // ---- Restoring over raw values (pluginval's state test) --------------------------------------
+    // A bool or choice keeps whatever raw value a host sets (0.46 on a bool reads back 0.46). A
+    // restored state must set every parameter to what was saved, even when its rounded value is
+    // the same as the raw one's.
+    {
+        Juno106AudioProcessor a;
+        juce::Random r (7);
+        auto params = a.getParameters();
+        for (auto* p : params)
+            p->setValueNotifyingHost (r.nextFloat());
+        juce::MemoryBlock saved;
+        a.getStateInformation (saved);
+        a.setStateInformation (saved.getData(), (int) saved.getSize());
+        std::vector<float> want;
+        for (auto* p : params)
+            want.push_back (p->getValue());
+
+        juce::StringArray wrong;
+        for (int trial = 0; trial < 20; ++trial)
+        {
+            for (auto* p : params)
+                p->setValueNotifyingHost (r.nextFloat());
+            a.setStateInformation (saved.getData(), (int) saved.getSize());
+            for (size_t i = 0; i < params.size(); ++i)
+                if (std::abs (params[(int) i]->getValue() - want[i]) > 1.0e-4f)
+                    wrong.addIfNotAlreadyThere (params[(int) i]->getName (32));
+        }
+        check (wrong.isEmpty(), ("every parameter reads back what was saved, over random raw values (20 trials)"
+                                 + (wrong.isEmpty() ? juce::String() : ": not " + wrong.joinIntoString (", "))).toRawUTF8());
+    }
+
     // ---- The Info View ------------------------------------------------------------------------
     std::cout << "Info View\n";
     {

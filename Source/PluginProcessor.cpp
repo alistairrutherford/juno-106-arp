@@ -464,6 +464,19 @@ void Juno106AudioProcessor::setStateInformation (const void* data, int sizeInByt
         {
             migrateStateXml (*xml);   // projects saved before the filter recalibration
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+            // replaceState only touches a parameter whose rounded value changed. A bool or
+            // choice keeps the raw value a host gave it (setValue (0.46) on a bool reads back
+            // 0.46 though it means off), so a saved "off" over a raw 0.46 was skipped and the
+            // parameter stayed at 0.46. Set each one from the restored state so it reads back
+            // exactly what was saved (pluginval's state test does this).
+            for (auto* param : getParameters())
+                if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
+                {
+                    const auto child = apvts.state.getChildWithProperty ("id", ranged->getParameterID());
+                    if (child.isValid() && child.hasProperty ("value"))
+                        ranged->setValueNotifyingHost (ranged->convertTo0to1 ((float) child.getProperty ("value")));
+                }
         }
 }
 
