@@ -15,8 +15,36 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // The Info View (as NoteCap's and Live's own): a strip along the bottom that says what the
+    // control under the mouse does. The key of what is at `p` (editor coordinates: a parameter
+    // ID, "header.…", "section.VCF", "keyboard"; empty over nothing described, the strip
+    // itself included), its entry, and showing one as hovering does.
+    juce::String infoKeyAt (juce::Point<int> p);
+    void showInfoFor (const juce::String& key);
+    static juce::String infoTitle (const juce::String& key);
+    static juce::String infoText (const juce::String& key);
+    static juce::StringArray infoKeys();
+    static juce::String infoHint();
+    const juce::String& shownInfoKey() const noexcept { return info.key; }
+    const juce::String& shownInfoTitle() const noexcept { return info.title; }
+    const juce::String& shownInfoText() const noexcept { return info.text; }
+    juce::Rectangle<int> infoBounds() const { return info.getBounds(); }
+
+    void mouseEnter (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+
 private:
-    void timerCallback() override;   // keeps the preset box in sync with the host
+    void timerCallback() override;
+    void updateInfo (const juce::MouseEvent&);
+
+    struct InfoView : public juce::Component
+    {
+        juce::String key, title, text;
+        void show (const juce::String& newKey, const juce::String& newTitle, const juce::String& newText);
+        void paint (juce::Graphics&) override;
+    };   // keeps the preset box in sync with the host
 
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -115,6 +143,7 @@ private:
     juce::ComboBox presetBox;
     juce::TextButton prevButton, nextButton, saveButton, loadButton;
     ArpDisplayKeyboard keyboard;
+    InfoView info;
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::vector<SessionPreset> sessionPresets;   // combo IDs 1001+
     bool userPresetActive = false;

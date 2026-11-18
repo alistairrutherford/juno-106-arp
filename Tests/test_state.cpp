@@ -1,6 +1,8 @@
 // Integration test: the real processor's preset save/load round trip must
-// restore parameters AND still produce audio. Run via run_integration.sh.
+// restore parameters AND still produce audio; the editor's Info View describes every
+// control. Run via run_integration.sh.
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include <iostream>
 #include <cmath>
 
@@ -292,6 +294,61 @@ int main()
     }
 
     file.deleteFile();
+
+    // ---- The Info View ------------------------------------------------------------------------
+    std::cout << "Info View\n";
+    {
+        Juno106AudioProcessor fresh;
+        std::unique_ptr<juce::AudioProcessorEditor> base (fresh.createEditor());
+        auto* editor = dynamic_cast<Juno106AudioProcessorEditor*> (base.get());
+        check (editor != nullptr, "the editor opens");
+        if (editor != nullptr)
+        {
+            // Every parameter has an entry, and they stay brief.
+            juce::StringArray noEntry, tooLong;
+            for (auto* p : fresh.getParameters())
+                if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (p))
+                    if (Juno106AudioProcessorEditor::infoTitle (withId->paramID).isEmpty())
+                        noEntry.add (withId->paramID);
+            for (const auto& k : Juno106AudioProcessorEditor::infoKeys())
+                if (Juno106AudioProcessorEditor::infoText (k).length() > 200 || Juno106AudioProcessorEditor::infoTitle (k).length() > 24)
+                    tooLong.add (k);
+            check (noEntry.isEmpty(), ("every parameter has an Info View entry" + (noEntry.isEmpty() ? juce::String() : ": none for " + noEntry.joinIntoString (", "))).toRawUTF8());
+            check (tooLong.isEmpty(), ("entries stay brief (titles at most 24 characters, text at most 200)" + (tooLong.isEmpty() ? juce::String() : ": " + tooLong.joinIntoString (", "))).toRawUTF8());
+
+            // Everything in the table can be pointed at.
+            juce::StringArray found, unreachable;
+            for (int y = 0; y < editor->getHeight(); y += 2)
+                for (int x = 0; x < editor->getWidth(); x += 2)
+                    found.addIfNotAlreadyThere (editor->infoKeyAt ({ x, y }));
+            for (const auto& k : Juno106AudioProcessorEditor::infoKeys())
+                if (! found.contains (k))
+                    unreachable.add (k);
+            check (unreachable.isEmpty(), ("everything described can be pointed at (" + juce::String (found.size() - 1) + " keys)"
+                                           + (unreachable.isEmpty() ? juce::String() : "; not: " + unreachable.joinIntoString (", "))).toRawUTF8());
+
+            // The strip sits under both rows and isn't something to point at; pointing and the hint.
+            const auto strip = editor->infoBounds();
+            check (strip.getBottom() <= editor->getHeight() && strip.getY() >= editor->getHeight() - 80 && editor->infoKeyAt (strip.getCentre()).isEmpty(),
+                   "the strip runs along the bottom and isn't itself something to point at");
+            juce::Point<int> resAt;
+            for (int y = 0; y < editor->getHeight() && resAt.isOrigin(); y += 2)
+                for (int x = 0; x < editor->getWidth() && resAt.isOrigin(); x += 2)
+                    if (editor->infoKeyAt ({ x, y }) == "vcfRes")
+                        resAt = { x + 4, y + 20 };
+            editor->showInfoFor (editor->infoKeyAt (resAt));
+            check (editor->shownInfoKey() == "vcfRes" && editor->shownInfoTitle() == "Resonance", "pointing at the VCF's RES fader shows its entry");
+            const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 2.0f);   // the README's screenshot, at 2x
+            auto out = juce::File::getCurrentWorkingDirectory().getChildFile ("Tests/build/editor-info.png");
+            out.deleteFile();
+            juce::FileOutputStream stream (out);
+            juce::PNGImageFormat().writeImageToStream (image, stream);
+            std::cout << "  (wrote " << out.getFullPathName() << ")\n";
+            editor->showInfoFor ({});
+            check (editor->shownInfoTitle().isEmpty() && editor->shownInfoText() == Juno106AudioProcessorEditor::infoHint(), "nothing pointed at shows the hint");
+        }
+    }
+
     std::cout << (failures == 0 ? "\nALL TESTS PASSED\n" : "\nTESTS FAILED\n");
     return failures == 0 ? 0 : 1;
 }

@@ -5,7 +5,11 @@ with JUCE. Builds as an **Audio Unit** and **VST3** (universal arm64 + x86_64),
 plus a Standalone app for quick testing. Loads into Ableton Live and any other
 AU/VST3 host on macOS.
 
-![Alt text](/screenshot.png?raw=true "Instrument Interface")
+![The Juno 106-ARP editor, with the Info View describing the VCF's resonance](/screenshot.png?raw=true "Instrument Interface")
+
+Point at any fader, switch or section and the **Info View** strip along the
+bottom of the editor says what it does and what its settings mean, like Live's
+own Info View.
 
 
 ## Architecture (faithful to the original signal path)
@@ -76,7 +80,9 @@ JUCE_DIR=~/Development/JUCE Tests/run_tests.sh
 
 `Tests/run_integration.sh` links against the built plugin and checks that a preset
 save/load round trip restores parameters *and* still produces audio (needs a
-Release build first).
+Release build first). It also checks the editor's Info View: every parameter has
+an entry, every entry can be pointed at, and it writes the screenshot above to
+`Tests/build/editor-info.png`.
 
 CI (`.github/workflows/build.yml`) builds the AU/VST3/Standalone and runs both on
 every push.

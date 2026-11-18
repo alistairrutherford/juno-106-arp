@@ -18,6 +18,183 @@ namespace
     constexpr int kRow2H     = 150;
     constexpr int kFaderW    = 40;
     constexpr int kLabelH    = 26;
+    constexpr int kInfoH     = 54;    // the Info View, with a 10 px gap under it
+
+    struct Info { const char* key; const char* title; const char* text; };
+
+    // One entry per parameter, plus the header, the sections and the keyboard. Keep each to a
+    // line or two: what it does, and what its settings mean.
+    const Info kInfo[] = {
+        { "header.preset", "Preset", "The preset loaded: factory presets by category, then any .juno or Juno-106 .syx file loaded or saved this session." },
+        { "header.prev", "Previous", "Loads the preset above in the list." },
+        { "header.next", "Next", "Loads the preset below in the list." },
+        { "header.save", "Save", "Saves these settings as a .juno file, which then appears in the list." },
+        { "header.load", "Load", "Loads a .juno preset, or a Juno-106 .syx bank (one entry per patch)." },
+        { "keyboard", "Keyboard", "Shows the notes sounding, after the arpeggiator. Click to play." },
+
+        { "section.PORTA", "Portamento", "Glide from one note's pitch to the next (not on the original 106)." },
+        { "portamento", "Glide time", "How long each note takes to glide from the last one's pitch, up to 2 seconds. 0: no glide." },
+        { "section.LFO", "LFO", "The low-frequency oscillator: vibrato for the DCO, PWM and the filter." },
+        { "lfoRate", "LFO rate", "The LFO's speed, 0.1 Hz to 30 Hz." },
+        { "lfoDelay", "LFO delay", "How long after a note starts the LFO fades in, up to 3 seconds." },
+        { "section.DCO", "DCO", "The oscillator: its range, modulation, waveforms, sub-oscillator and noise." },
+        { "dcoRange", "Range", "The oscillator's octave: 16' (low), 8' (normal) or 4' (high)." },
+        { "dcoLfo", "DCO LFO", "How much the LFO wobbles the pitch: vibrato." },
+        { "dcoPwm", "PWM", "Pulse width modulation: how far the pulse wave's width moves, or with SRC Manual, its fixed width." },
+        { "pwmSource", "PWM source", "LFO: the LFO moves the pulse width. Manual: the PWM fader sets it." },
+        { "sawOn", "Saw", "Turns the sawtooth wave on or off." },
+        { "pulseOn", "Pulse", "Turns the pulse (square) wave on or off. PWM changes its width." },
+        { "subLevel", "Sub", "The sub-oscillator's level: a square wave an octave below." },
+        { "noiseLevel", "Noise", "The level of white noise added to the oscillator." },
+        { "section.HPF", "HPF", "The high-pass filter switch in front of the VCF." },
+        { "hpf", "HPF", "0: a bass boost. 1: flat. 2 and 3: cut more and more of the lows." },
+        { "section.VCF", "VCF", "The resonant low-pass filter and what moves its cutoff." },
+        { "vcfFreq", "Cutoff", "The filter's cutoff: lower is darker." },
+        { "vcfRes", "Resonance", "Emphasis at the cutoff. High settings make the filter ring." },
+        { "vcfEnvPol", "Envelope polarity", "Positive: the envelope opens the filter. Negative: it closes it." },
+        { "vcfEnv", "VCF env", "How far the envelope moves the cutoff." },
+        { "vcfLfo", "VCF LFO", "How far the LFO moves the cutoff: a wah." },
+        { "vcfKybd", "Keyboard follow", "How much the cutoff follows the key played: higher notes brighter." },
+        { "section.ENV", "Envelope", "The ADSR envelope, shared by the VCF and (in Env mode) the VCA." },
+        { "attack", "Attack", "How long the envelope takes to reach full level, up to 3 seconds." },
+        { "decay", "Decay", "How long it takes to fall from full level to the sustain level, up to 12 seconds." },
+        { "sustain", "Sustain", "The level held while the key is down." },
+        { "release", "Release", "How long the sound takes to fade after the key is let go, up to 12 seconds." },
+        { "section.VCA", "VCA", "The amplifier: its mode and level." },
+        { "vcaMode", "VCA mode", "Env: the envelope shapes the volume. Gate: full volume while the key is down, off when it is let go." },
+        { "vcaLevel", "VCA level", "The output level." },
+        { "section.CHORUS", "Chorus", "The Juno's chorus: I, II, or both together." },
+        { "chorusI", "Chorus I", "The gentler chorus. With II too, both run together." },
+        { "chorusII", "Chorus II", "The deeper chorus. With I too, both run together." },
+        { "section.ARP", "Arpeggiator", "Plays the held notes one at a time, locked to the host's tempo (not on the original 106)." },
+        { "arpOn", "Arp on", "Turns the arpeggiator on or off." },
+        { "arpHold", "Arp hold", "Latch: the arp keeps playing after you let go, until you play new notes." },
+        { "arpMode", "Arp mode", "The note order: Up, Down, Up/Down, Down/Up, Random, or As Played." },
+        { "arpRate", "Arp rate", "The step length: 1/4 to 1/32 (T: triplets)." },
+        { "arpOctaves", "Arp octaves", "How many octaves the arp climbs (1 to 4)." },
+        { "arpGate", "Arp gate", "How much of each step a note sounds, 5% to 100%." },
+        { "section.DRIVE", "Drive", "Filter drive (not on the original 106)." },
+        { "vcfDrive", "Drive", "Pushes the filter harder, for a warmer, grittier sound." },
+        { "section.BEND", "Bend", "What the pitch bender does." },
+        { "bendRange", "Bend range", "How far the bender moves the pitch, in semitones (0 to 12)." },
+        { "benderVcf", "Bender VCF", "How far the bender moves the cutoff too, up to 2 octaves." },
+        { "section.VELOCITY", "Velocity", "How playing harder changes the sound (not on the original 106)." },
+        { "velVcf", "Velocity VCF", "How much velocity moves the cutoff: harder notes open it, softer ones close it (up to 2 octaves each way)." },
+        { "velVca", "Velocity VCA", "How much harder notes play louder. 0: every note at the same level." },
+        { "section.AFTER", "Aftertouch", "What pressing harder on a held key does (not on the original 106)." },
+        { "atVcf", "Aftertouch VCF", "How far pressure opens the filter, up to 4 octaves." },
+    };
+
+    const char* kInfoHint = "Point at a control to see what it does.";
+
+    const Info* findInfo (const juce::String& key)
+    {
+        if (key.isEmpty())
+            return nullptr;
+        for (const auto& i : kInfo)
+            if (key == i.key)
+                return &i;
+        return nullptr;
+    }
+}
+
+//==============================================================================
+void Juno106AudioProcessorEditor::InfoView::show (const juce::String& newKey, const juce::String& newTitle, const juce::String& newText)
+{
+    key = newKey;
+    if (newTitle == title && newText == text)
+        return;
+    title = newTitle;
+    text = newText;
+    repaint();
+}
+
+void Juno106AudioProcessorEditor::InfoView::paint (juce::Graphics& g)
+{
+    auto r = getLocalBounds().toFloat();
+    g.setColour (kHeader);
+    g.fillRoundedRectangle (r, 5.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.12f));
+    g.drawRoundedRectangle (r.reduced (0.5f), 5.0f, 1.0f);
+    r = r.reduced (14.0f, 8.0f);
+    if (title.isNotEmpty())
+    {
+        g.setColour (kOrangeLine);
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.drawText (title, r.removeFromTop (18.0f), juce::Justification::centredLeft);
+    }
+    g.setColour (juce::Colours::white.withAlpha (title.isEmpty() ? 0.55f : 0.85f));
+    g.setFont (juce::Font (juce::FontOptions (12.5f)));
+    g.drawFittedText (text, r.toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+}
+
+juce::String Juno106AudioProcessorEditor::infoTitle (const juce::String& key)
+{
+    const auto* i = findInfo (key);
+    return i != nullptr ? juce::String::fromUTF8 (i->title) : juce::String();
+}
+
+juce::String Juno106AudioProcessorEditor::infoText (const juce::String& key)
+{
+    const auto* i = findInfo (key);
+    return i != nullptr ? juce::String::fromUTF8 (i->text) : juce::String();
+}
+
+juce::StringArray Juno106AudioProcessorEditor::infoKeys()
+{
+    juce::StringArray out;
+    for (const auto& i : kInfo)
+        out.add (i.key);
+    return out;
+}
+
+juce::String Juno106AudioProcessorEditor::infoHint() { return kInfoHint; }
+
+juce::String Juno106AudioProcessorEditor::infoKeyAt (juce::Point<int> p)
+{
+    // The innermost thing under the point with a key, else the section it is in. (From the
+    // children down: the editor's own getComponentAt needs it to be on screen.)
+    juce::Component* hit = nullptr;
+    for (int i = getNumChildComponents(); --i >= 0 && hit == nullptr;)
+    {
+        auto* child = getChildComponent (i);
+        if (child->isVisible() && child->getBounds().contains (p))
+            hit = child->getComponentAt (child->getLocalPoint (this, p));
+    }
+    for (auto* c = hit; c != nullptr && c != this; c = c->getParentComponent())
+        if (findInfo (c->getComponentID()) != nullptr)
+            return c->getComponentID();
+    if (hit == nullptr)
+        for (const auto& s : sections)
+            if (s.bounds.contains (p))
+                return "section." + s.name;
+    return {};
+}
+
+void Juno106AudioProcessorEditor::showInfoFor (const juce::String& key)
+{
+    if (const auto* i = findInfo (key))
+        info.show (key, juce::String::fromUTF8 (i->title), juce::String::fromUTF8 (i->text));
+    else
+        info.show ({}, {}, kInfoHint);
+}
+
+void Juno106AudioProcessorEditor::updateInfo (const juce::MouseEvent& e)
+{
+    const auto key = infoKeyAt (e.getEventRelativeTo (this).getPosition());
+    if (key != info.key || info.text.isEmpty())
+        showInfoFor (key);
+}
+
+void Juno106AudioProcessorEditor::mouseEnter (const juce::MouseEvent& e) { updateInfo (e); }
+void Juno106AudioProcessorEditor::mouseMove (const juce::MouseEvent& e)  { updateInfo (e); }
+void Juno106AudioProcessorEditor::mouseDrag (const juce::MouseEvent& e)  { updateInfo (e); }
+
+void Juno106AudioProcessorEditor::mouseExit (const juce::MouseEvent& e)
+{
+    // Moving between children also sends exits: clear only on leaving the editor.
+    if (! getLocalBounds().contains (e.getEventRelativeTo (this).getPosition()))
+        showInfoFor ({});
 }
 
 //==============================================================================
@@ -156,7 +333,18 @@ Juno106AudioProcessorEditor::Juno106AudioProcessorEditor (Juno106AudioProcessor&
     refreshPresetList (processor.getCurrentProgram() + 1);
     lastSeenProgram = processor.getCurrentProgram();
 
-    setSize (1430, 452);
+    // The Info View's keys for what isn't a fader or a switch (those carry their parameter's ID).
+    presetBox.setComponentID ("header.preset");
+    prevButton.setComponentID ("header.prev");
+    nextButton.setComponentID ("header.next");
+    saveButton.setComponentID ("header.save");
+    loadButton.setComponentID ("header.load");
+    keyboard.setComponentID ("keyboard");
+    addAndMakeVisible (info);
+    showInfoFor ({});
+    addMouseListener (this, true);   // hovering over any child updates the Info View
+
+    setSize (1430, 452 + kInfoH + 10);   // 64 px taller than before the Info View
 
     // Poll the processor so host-driven program changes are reflected here too.
     startTimerHz (10);
@@ -357,6 +545,8 @@ Juno106AudioProcessorEditor::Fader& Juno106AudioProcessorEditor::addFader (
     }
 
     addAndMakeVisible (f.slider);
+    f.slider.setComponentID (paramID);   // the Info View's key, for the fader and its caption
+    f.label.setComponentID (paramID);
 
     f.label.setText (text, juce::dontSendNotification);
     f.label.setJustificationType (juce::Justification::centred);
@@ -377,6 +567,7 @@ Juno106AudioProcessorEditor::Toggle& Juno106AudioProcessorEditor::addToggle (
 
     t.button.setButtonText (text);
     t.button.setClickingTogglesState (true);
+    t.button.setComponentID (paramID);   // the Info View's key
     addAndMakeVisible (t.button);
 
     t.attachment = std::make_unique<ButtonAttachment> (processor.apvts, paramID, t.button);
@@ -511,6 +702,9 @@ void Juno106AudioProcessorEditor::resized()
     const int kbW = getWidth() - kbX - 20;
     keyboard.setBounds (kbX, rowY + 18, kbW, rowH - 18 - 10);
     keyboard.setKeyWidth ((float) kbW / 52.0f);     // 52 white keys in A0..C8
+
+    // The Info View along the bottom, under both rows.
+    info.setBounds (14, kRow2Y + kRow2H + 12, getWidth() - 28, kInfoH);
 }
 
 void Juno106AudioProcessorEditor::paint (juce::Graphics& g)
