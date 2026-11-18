@@ -5,6 +5,8 @@ with JUCE. Builds as an **Audio Unit** and **VST3** (universal arm64 + x86_64),
 plus a Standalone app for quick testing. Loads into Ableton Live and any other
 AU/VST3 host on macOS.
 
+**Version 1.1.0** (2026-11-18). What changed: [CHANGELOG.md](CHANGELOG.md).
+
 ![The Juno 106-ARP editor, with the Info View describing the VCF's resonance](/screenshot.png?raw=true "Instrument Interface")
 
 Point at any fader, switch or section and the **Info View** strip along the
